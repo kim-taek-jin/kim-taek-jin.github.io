@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoodFlix - 오늘 당신에게 필요한 드라마는?</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .mood-btn {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .mood-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .mood-btn.selected {
+            background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
+            color: white;
+            transform: scale(1.05);
+            border-color: transparent;
+        }
+        
+        .genre-chip {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .genre-chip:hover {
+            background-color: #e9ecef;
+            transform: scale(1.05);
+        }
+        
+        .genre-chip.selected {
+            background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 166, 255, 0.3);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
+        }
+        
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .card-enter {
+            animation: card-enter 0.5s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        @keyframes card-enter {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="hero-section text-white py-16">
+        <div class="container mx-auto px-4 text-center">
+            <h1 class="text-4xl md:text-6xl font-bold mb-4 animate-pulse">🎬 MoodFlix</h1>
+            <p class="text-xl md:text-2xl mb-2">오늘 당신에게 필요한 콘텐츠는?</p>
+            <p class="text-lg opacity-90">당신의 감정과 취향에 맞는 완벽한 드라마와 영화를 찾아드립니다</p>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">😊 지금 기분이 어떠신가요?</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="moodSection">
+                <div class="mood-btn bg-white border-2 border-gray-200 rounded-xl p-4 text-center" data-mood="happy">
+                    <div class="text-3xl mb-2">😊</div>
+                    <div class="font-medium">설레요</div>
+                </div>
+                <div class="mood-btn bg-white border-2 border-gray-200 rounded-xl p-4 text-center" data-mood="sad">
+                    <div class="text-3xl mb-2">😔</div>
+                    <div class="font-medium">우울해요</div>
+                </div>
+                <div class="mood-btn bg-white border-2 border-gray-200 rounded-xl p-4 text-center" data-mood="angry">
+                    <div class="text-3xl mb-2">😡</div>
+                    <div class="font-medium">짜증나요</div>
+                </div>
+                <div class="mood-btn bg-white border-2 border-gray-200 rounded-xl p-4 text-center" data-mood="calm">
+                    <div class="text-3xl mb-2">😌</div>
+                    <div class="font-medium">잔잔한 게 좋아요</div>
+                </div>
+                <div class="mood-btn bg-white border-2 border-gray-200 rounded-xl p-4 text-center" data-mood="excited">
+                    <div class="text-3xl mb-2">🤩</div>
+                    <div class="font-medium">신나요</div>
+                </div>
+                <div class="mood-btn bg-white border-2 border-gray-200 rounded-xl p-4 text-center" data-mood="tired">
+                    <div class="text-3xl mb-2">😴</div>
+                    <div class="font-medium">피곤해요</div>
+                </div>
+                <div class="mood-btn bg-white border-2 border-gray-200 rounded-xl p-4 text-center" data-mood="romantic">
+                    <div class="text-3xl mb-2">🥰</div>
+                    <div class="font-medium">로맨틱한 기분</div>
+                </div>
+                <div class="mood-btn bg-white border-2 border-gray-200 rounded-xl p-4 text-center" data-mood="curious">
+                    <div class="text-3xl mb-2">🤔</div>
+                    <div class="font-medium">뭔가 새로운 게</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">🎭 어떤 분위기를 원하세요?</h2>
+            <div class="flex flex-wrap gap-3" id="genreSection">
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="romance">로맨스</div>
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="comedy">코미디</div>
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="drama">드라마</div>
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="thriller">스릴러</div>
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="fantasy">판타지</div>
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="action">액션</div>
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="healing">힐링</div>
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="mystery">미스터리</div>
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="historical">사극</div>
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="youth">청춘</div>
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="family">가족</div>
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="horror">공포</div>
+                <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre="sf">SF</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">✍️ 더 자세히 알려주세요</h2>
+            <textarea 
+                id="userInput" 
+                placeholder="최근에 재미있게 본 드라마나 영화, 또는 보고 싶은 분위기를 자유롭게 써주세요&#10;예: 최근에 '사랑의 불시착' 보고 감동받았어요. 비슷한 느낌의 로맨스 드라마 추천해주세요!"
+                class="w-full h-24 p-4 border border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+            ></textarea>
+        </div>
+
+        <div class="text-center">
+            <button 
+                id="getRecommendation" 
+                class="gradient-bg text-white font-bold py-4 px-8 rounded-xl text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+            >
+                ✨ 나만의 추천 받기
+            </button>
+        </div>
+
+        <div id="loadingSection" class="hidden text-center py-8">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            <p class="mt-4 text-gray-600">당신에게 완벽한 콘텐츠를 찾고 있어요...</p>
+        </div>
+
+        <div id="recommendationSection" class="hidden mt-8">
+            </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let selectedMood = '';
+        let selectedGenres = [];
+        
+        // --- UPDATED CONTENT DATABASE ---
+        const contentDatabase = {
+            romance: [
+                { title: "눈물의 여왕", genre: "로맨스/드라마", description: "퀸즈 그룹 재벌 3세와 용두리 이장 아들, 3년차 부부의 아찔한 위기와 기적처럼 다시 시작되는 사랑 이야기", platform: "넷플릭스", poster: "👑" },
+                { title: "선재 업고 튀어", genre: "로맨스/판타지", description: "자신을 살게 해줬던 유명 아티스트를 살리기 위해 과거로 간 팬의 시간 여행 로맨스", platform: "티빙", poster: "🏃‍♀️" },
+                { title: "나는 대놓고 신데렐라를 꿈꾼다", genre: "로맨스/코미디", description: "현실의 벽에 부딪혀 신데렐라가 되기로 마음먹은 여자와 사랑을 믿지 않는 재벌 8세의 로맨틱 코미디", platform: "티빙", poster: "👠" },
+                { title: "상견니", genre: "로맨스/판타지", description: "과거와 현재를 오가며 펼쳐지는 애틋하고 미스터리한 첫사랑 로맨스", platform: "왓챠", poster: "📼" },
+                { title: "그 해 우리는", genre: "청춘/로맨스", description: "고등학생 때 헤어진 연인이 다큐멘터리로 다시 만나며 벌어지는 청춘 로맨스", platform: "넷플릭스", poster: "📹" },
+                { title: "패스트 라이브즈", genre: "로맨스/드라마", description: "서울에서 어린 시절을 보낸 두 남녀가 20년 만에 뉴욕에서 재회하며 벌어지는 이야기", platform: "왓챠", poster: "🗽" }
+            ],
+            comedy: [
+                { title: "닭강정", genre: "코미디/미스터리", description: "의문의 기계에 들어갔다가 닭강정으로 변해버린 딸을 되돌리기 위한 아빠와 그녀를 짝사랑하는 남자의 고군분투", platform: "넷플릭스", poster: "🐔" },
+                { title: "극한직업", genre: "코미디/액션", description: "해체 위기의 마약반이 위장 창업한 '수원왕갈비통닭'이 맛집으로 소문나며 벌어지는 이야기", platform: "넷플릭스", poster: "🍗" },
+                { title: "킬링 로맨스", genre: "코미디/뮤지컬", description: "은퇴한 톱스타 여배우가 섬나라 재벌과 결혼 후, 옆집 삼수생과 함께 남편을 죽이려 모의하는 이야기", platform: "쿠팡플레이", poster: "🏝️" },
+                { title: "에브리씽 에브리웨어 올 앳 원스", genre: "코미디/SF", description: "미국에 사는 이민자 여성이 다중우주를 넘나들며 세상을 구하는 이야기", platform: "넷플릭스", poster: "🥯" }
+            ],
+            drama: [
+                { title: "파친코", genre: "드라마", description: "금지된 사랑에서 시작되는 이야기로 한국과 일본, 그리고 미국을 오가며 전쟁과 평화, 사랑과 이별, 승리와 심판에 대한 잊을 수 없는 연대기", platform: "Apple TV+", poster: "🎰" },
+                { title: "The 8 Show (더 에이트 쇼)", genre: "드라마/스릴러", description: "8명의 인물이 8층으로 나뉜 비밀스런 공간에 갇혀 '시간이 쌓이면 돈을 버는' 쇼에 참가하며 벌어지는 이야기", platform: "넷플릭스", poster: "8️⃣" },
+                { title: "무빙", genre: "드라마/액션/히어로", description: "초능력을 숨긴 채 현재를 살아가는 아이들과, 과거의 아픈 비밀을 숨긴 채 살아온 부모들의 이야기", platform: "디즈니+", poster: "🦸" },
+                { title: "더 글로리", genre: "드라마/스릴러", description: "유년 시절 폭력으로 영혼까지 부서진 한 여자가 온 생을 걸어 치밀하게 준비한 처절한 복수극", platform: "넷플릭스", poster: "🔥" },
+                { title: "체르노빌", genre: "드라마/역사", description: "1986년 발생한 체르노빌 원자력 발전소 폭발 사고를 바탕으로, 재앙을 막기 위해 목숨을 바친 사람들의 충격적인 실화", platform: "왓챠", poster: "☢️" },
+                { title: "나의 해방일지", genre: "드라마", description: "평범한 일상에서 해방을 꿈꾸는 세 남매의 이야기", platform: "넷플릭스", poster: "📖" }
+            ],
+            thriller: [
+                { title: "피라미드 게임", genre: "스릴러/드라마", description: "한 달에 한 번 비밀투표로 왕따를 뽑는 백연여고 2학년 5반, 가해자, 피해자, 방관자가 모두 섞여버린 그곳에서 점점 더 폭력에 빠져드는 학생들의 잔혹한 서바이벌", platform: "티빙", poster: "🔺" },
+                { title: "마스크걸", genre: "스릴러/블랙코미디", description: "외모 콤플렉스를 가진 평범한 직장인이 밤마다 마스크로 얼굴을 가린 채 인터넷 방송 BJ로 활동하면서 벌어지는 이야기", platform: "넷플릭스", poster: "😷" },
+                { title: "살인자ㅇ난감", genre: "스릴러/범죄", description: "우발적으로 살인을 시작하게 된 평범한 남자와 그를 지독하게 쫓는 형사의 이야기", platform: "넷플릭스", poster: "🔨" },
+                { title: "좋거나 나쁜 동재", genre: "스릴러/범죄", description: "'비밀의 숲' 스핀오프. 스폰 검사라는 과거의 딱지를 떼지 못한 채 앞날이 깜깜한 청주지검 검사 서동재가 재개발 사건으로 골머리를 앓는 이야기", platform: "티빙", poster: "👔" }
+            ],
+            fantasy: [
+                { title: "환혼", genre: "판타지/로맨스", description: "역사에도 지도에도 존재하지 않은 대호국을 배경으로, 영혼을 바꾸는 '환혼술'로 인해 운명이 비틀린 주인공들의 이야기", platform: "넷플릭스", poster: "💫" },
+                { title: "이재, 곧 죽습니다", genre: "판타지/드라마", description: "지옥으로 떨어지기 직전의 주인공이 죽음이 내린 심판에 의해 12번의 죽음과 삶을 경험하게 되는 인생 환승 드라마", platform: "티빙", poster: "💀" },
+                { title: "도깨비", genre: "판타지/로맨스", description: "불멸의 도깨비와 인간 여성의 환상적 사랑 이야기", platform: "왓챠", poster: "⚔️" }
+            ],
+            action: [
+                { title: "범죄도시 4", genre: "액션/범죄", description: "괴물형사 마석도, 이번엔 불법 온라인 도박 조직을 소탕하기 위해 사이버수사대와 공조한다", platform: "VOD", poster: "👊" },
+                { title: "존 윅 4", genre: "액션/스릴러", description: "죽을 위기에서 살아난 '존 윅'이 최고 회의를 무너뜨리기 위해 벌이는 거대한 전쟁", platform: "넷플릭스", poster: "🤵" },
+                { title: "마이 네임", genre: "액션/스릴러", description: "아버지의 복수를 위해 조직에 들어간 여성의 액션", platform: "넷플릭스", poster: "🔫" }
+            ],
+            healing: [
+                { title: "슬기로운 의사생활", genre: "힐링/드라마", description: "병원에서 평범한 듯 특별한 하루하루를 살아가는 사람들과 20년지기 친구들의 케미스트리를 담은 드라마", platform: "넷플릭스", poster: "🩺" },
+                { title: "나의 아저씨", genre: "힐링/드라마", description: "삶의 무게를 버티며 살아가는 아저씨 삼 형제와 거칠게 살아온 한 여성이 서로를 통해 삶을 치유하게 되는 이야기", platform: "넷플릭스", poster: "🧑‍🤝‍🧑" },
+                { title: "갯마을 차차차", genre: "힐링/로맨스", description: "바닷가 마을의 따뜻한 사람들과 함께하는 힐링", platform: "넷플릭스", poster: "🏖️" }
+            ],
+            mystery: [
+                { title: "악귀", genre: "미스터리/오컬트", description: "악귀에 씐 여자와 그 악귀를 볼 수 있는 남자가 의문의 죽음을 파헤치는 한국형 오컬트 미스터리", platform: "디즈니+", poster: "🚪" },
+                { title: "괴물", genre: "미스터리/스릴러", description: "연쇄살인마를 잡기 위해 법과 원칙을 깨부수는 두 남자의 이야기", platform: "넷플릭스", poster: "👥" },
+                { title: "비밀의 숲", genre: "미스터리/법정", description: "감정이 없는 검사와 열혈 형사의 수사극", platform: "넷플릭스", poster: "⚖️" }
+            ],
+            historical: [
+                { title: "연인", genre: "사극/로맨스", description: "병자호란을 겪으며 엇갈리는 연인들의 사랑과 백성들의 생명력을 다룬 휴먼역사멜로드라마", platform: "웨이브", poster: "💕" },
+                { title: "킹덤", genre: "사극/스릴러", description: "조선시대를 배경으로 한 좀비 사극", platform: "넷플릭스", poster: "👑" },
+                { title: "미스터 션샤인", genre: "사극/로맨스", description: "구한말을 배경으로 한 대서사극", platform: "넷플릭스", poster: "🌅" }
+            ],
+            youth: [
+                { title: "하이라키", genre: "청춘/드라마", description: "상위 0.01%의 소수가 질서이자 법으로 군림하는 주신고에 비밀을 품고 입성한 전학생이 그들의 견고한 세계에 균열을 일으키는 이야기", platform: "넷플릭스", poster: "🏫" },
+                { title: "25 21", genre: "청춘/드라마", description: "IMF 시대 청춘들의 꿈과 사랑을 그린 성장 드라마", platform: "넷플릭스", poster: "🤺" },
+                { title: "약한영웅 Class 1", genre: "청춘/액션", description: "상위 1% 모범생이 타고난 두뇌와 분석력으로 학교 안팎의 폭력에 맞서 싸우는 약한 소년의 강한 액션 성장 드라마", platform: "웨이브", poster: "📖" }
+            ],
+            family: [
+                { title: "코코", genre: "가족/애니메이션", description: "음악을 사랑하는 소년 미구엘이 죽은 자들의 세상으로 들어가면서 펼쳐지는 황홀한 모험", platform: "디즈니+", poster: "🎸" },
+                { title: "응답하라 1988", genre: "가족/코미디", description: "1988년 다섯 가족의 따뜻한 일상", platform: "넷플릭스", poster: "📺" },
+                { title: "모던 패밀리", genre: "가족/코미디", description: "세 가족의 일상을 유쾌하게 그린 시트콤", platform: "디즈니+", poster: "🏡" }
+            ],
+            horror: [
+                { title: "파묘", genre: "호러/오컬트", description: "거액의 돈을 받고 수상한 묘를 이장한 풍수사와 장의사, 무속인들에게 벌어지는 기이한 사건", platform: "VOD", poster: "⚰️" },
+                { title: "곡성", genre: "호러/미스터리", description: "시골 마을에 나타난 의문의 외지인과 기이한 사건들", platform: "넷플릭스", poster: "👻" },
+                { title: "스위트홈", genre: "호러/스릴러", description: "아파트에 갇힌 사람들과 괴물들의 생존기", platform: "넷플릭스", poster: "🏢" }
+            ],
+            sf: [
+                { title: "Dr. 브레인", genre: "SF/미스터리", description: "기억과 의식을 스캔하는 뇌동기화 기술을 통해 미스터리한 사건의 단서를 추적하는 SF 스릴러", platform: "Apple TV+", poster: "🧠" },
+                { title: "경성크리처", genre: "SF/스릴러", description: "1945년 경성, 생존이 전부였던 두 청춘이 탐욕 위에 탄생한 괴물과 맞서는 이야기", platform: "넷플릭스", poster: "🔬" },
+                { title: "삼체", genre: "SF/미스터리", description: "1960년대 중국의 한 젊은 여성이 내린 운명적 결정이 시공을 뛰어넘어 현재의 유수 과학자들에게 미치는 영향", platform: "넷플릭스", poster: "📡" },
+                { title: "블랙 미러", genre: "SF/스릴러", description: "첨단 기술이 인간의 욕망을 실현해주면서 벌어지는 특별한 상상력을 담은 SF 옴니버스 시리즈", platform: "넷플릭스", poster: "📱" }
+            ]
+        };
+
+        // 함수들 (이하 동일)
+        function showLoading() {
+            document.getElementById('loadingSection').classList.remove('hidden');
+            document.getElementById('recommendationSection').classList.add('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingSection').classList.add('hidden');
+            document.getElementById('recommendationSection').classList.remove('hidden');
+        }
+
+        function getRecommendations() {
+            let recommendations = [];
+            
+            if (selectedGenres.length > 0) {
+                selectedGenres.forEach(genre => {
+                    if (contentDatabase[genre]) {
+                        recommendations.push(...contentDatabase[genre]);
+                    }
+                });
+            } else if (selectedMood) {
+                switch(selectedMood) {
+                    case 'happy': case 'excited':
+                        recommendations.push(...contentDatabase.comedy, ...contentDatabase.romance);
+                        break;
+                    case 'sad': case 'tired':
+                        recommendations.push(...contentDatabase.drama, ...contentDatabase.healing);
+                        break;
+                    case 'romantic':
+                        recommendations.push(...contentDatabase.romance, ...contentDatabase.fantasy);
+                        break;
+                    case 'curious':
+                        recommendations.push(...contentDatabase.mystery, ...contentDatabase.sf);
+                        break;
+                    case 'angry':
+                        recommendations.push(...contentDatabase.action, ...contentDatabase.thriller);
+                        break;
+                    case 'calm':
+                        recommendations.push(...contentDatabase.healing, ...contentDatabase.family);
+                        break;
+                    default:
+                        recommendations.push(...Object.values(contentDatabase).flat());
+                }
+            } else {
+                recommendations.push(...contentDatabase.romance.slice(0, 1));
+                recommendations.push(...contentDatabase.drama.slice(0, 1));
+                recommendations.push(...contentDatabase.action.slice(0, 1));
+            }
+            
+            // 중복 제거
+            const uniqueRecommendations = recommendations.filter((item, index, self) => 
+                index === self.findIndex(t => t.title === item.title)
+            );
+            
+            // 랜덤 3개 선택
+            const result = uniqueRecommendations.sort(() => 0.5 - Math.random()).slice(0, 3);
+            return result;
+        }
+
+        function displayRecommendations(recommendations) {
+            const section = document.getElementById('recommendationSection');
+            
+            let html = `
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">🎯 당신을 위한 추천</h2>
+                    <p class="text-gray-600">지금 이 순간 당신에게 딱 맞는 콘텐츠입니다</p>
+                </div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            `;
+            
+            recommendations.forEach((item, index) => {
+                html += `
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 card-enter" style="animation-delay: ${index * 100}ms">
+                        <div class="p-6">
+                            <div class="text-6xl text-center mb-4">${item.poster}</div>
+                            <h3 class="text-xl font-bold mb-2 text-gray-800">${item.title}</h3>
+                            <p class="text-sm text-blue-500 font-semibold mb-2">${item.genre}</p>
+                            <p class="text-gray-600 mb-4 text-sm leading-relaxed h-20">${item.description}</p>
+                            <div class="flex justify-between items-center mt-4">
+                                <span class="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                                    📺 ${item.platform}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                </div>
+                <div class="text-center">
+                    <button onclick="resetForm()" class="bg-white border-2 border-gray-300 text-gray-700 font-medium py-3 px-6 rounded-lg hover:bg-gray-100 transition-colors mr-4">
+                        🔄 다시 추천받기
+                    </button>
+                    <button onclick="getMoreRecommendations()" class="gradient-bg text-white font-medium py-3 px-6 rounded-lg hover:shadow-lg transition-all">
+                        ➕ 더 많은 추천
+                    </button>
+                </div>
+            `;
+            
+            section.innerHTML = html;
+        }
+
+        function resetForm() {
+            selectedMood = '';
+            selectedGenres = [];
+            document.getElementById('userInput').value = '';
+            
+            document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('selected'));
+            document.querySelectorAll('.genre-chip').forEach(chip => chip.classList.remove('selected'));
+            
+            document.getElementById('recommendationSection').classList.add('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function getMoreRecommendations() {
+            showLoading();
+            setTimeout(() => {
+                const newRecommendations = getRecommendations();
+                displayRecommendations(newRecommendations);
+                hideLoading();
+            }, 1000);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('moodSection').addEventListener('click', function(e) {
+                const moodBtn = e.target.closest('.mood-btn');
+                if (moodBtn) {
+                    document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('selected'));
+                    moodBtn.classList.add('selected');
+                    selectedMood = moodBtn.dataset.mood;
+                }
+            });
+
+            document.getElementById('genreSection').addEventListener('click', function(e) {
+                const genreChip = e.target.closest('.genre-chip');
+                if (genreChip) {
+                    const genre = genreChip.dataset.genre;
+                    genreChip.classList.toggle('selected');
+                    
+                    if (selectedGenres.includes(genre)) {
+                        selectedGenres = selectedGenres.filter(g => g !== genre);
+                    } else {
+                        selectedGenres.push(genre);
+                    }
+                }
+            });
+
+            document.getElementById('getRecommendation').addEventListener('click', function() {
+                const userInput = document.getElementById('userInput').value;
+                
+                if (!selectedMood && selectedGenres.length === 0 && !userInput.trim()) {
+                    alert('감정이나 장르를 선택하거나, 자유 입력란에 내용을 입력해주세요!');
+                    return;
+                }
+                
+                showLoading();
+                
+                setTimeout(() => {
+                    const recommendations = getRecommendations();
+                    displayRecommendations(recommendations);
+                    hideLoading();
+                }, 1500);
+            });
+        });
+    </script>
+</body>
+</html>
