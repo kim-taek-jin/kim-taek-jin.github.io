@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MoodFlix - Hybrid Recommendations</title>
+    <title>MoodFlix - Real-time Movie & TV Recommendations</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
@@ -17,13 +17,15 @@
         body.dark .bg-white { background-color: #1f2937; }
         body.dark .text-gray-800, body.dark .text-gray-900 { color: #f9fafb; }
         body.dark .text-gray-500, body.dark .text-gray-600 { color: #9ca3af; }
-        body.dark .border-gray-200 { border-color: #4b5563; }
+        body.dark .border-gray-200, body.dark .border-gray-300 { border-color: #4b5563; }
         body.dark .nav-tab { color: #9ca3af; }
         body.dark .nav-tab.active { color: #a5b4fc; border-bottom-color: #a5b4fc; }
         body.dark .mood-btn, body.dark .genre-chip, body.dark .region-btn { background-color: #374151; }
-        body.dark #userInput { background-color: #374151; border-color: #4b5563; }
+        body.dark #userInput, body.dark #movieSearchInput { background-color: #374151; border-color: #4b5563; }
+        body.dark .hero-section { background: linear-gradient(135deg, #3730a3 0%, #1e1b4b 100%); }
         
         /* General Styles */
+        .hero-section { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .nav-tab { transition: all 0.2s; }
         .nav-tab.active { color: #4f46e5; border-bottom-color: #4f46e5; }
         .mood-btn, .genre-chip, .region-btn { transition: all 0.2s; cursor: pointer; }
@@ -36,11 +38,28 @@
         }
         .modal-overlay { background-color: rgba(0, 0, 0, 0.6); transition: opacity 0.3s ease; backdrop-filter: blur(5px); }
         .modal-content { transition: transform 0.3s ease, opacity 0.3s ease; }
+        .sort-btn { transition: all 0.2s; }
+        .sort-btn.selected { background-color: #4f46e5; color: white; border-color: #4f46e5;}
+        body.dark .sort-btn.selected { background-color: #a5b4fc; color: #111827; border-color: #a5b4fc; }
     </style>
 </head>
 <body class="bg-gray-50">
+    <div class="hero-section text-white py-16">
+        <div class="container mx-auto px-4 text-center relative">
+            <h1 class="text-4xl md:text-6xl font-bold mb-4">🎬 MoodFlix</h1>
+            <p class="text-xl md:text-2xl mb-2">오늘 당신에게 필요한 콘텐츠는?</p>
+            <p class="text-lg opacity-90">당신의 감정과 취향에 맞는 완벽한 드라마와 영화를 찾아드립니다</p>
+            <div class="absolute top-0 right-4">
+                <button id="theme-toggle" class="p-2 rounded-full text-white/70 hover:bg-white/20 focus:outline-none">
+                    <svg id="theme-toggle-dark-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                    <svg id="theme-toggle-light-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm-.707 10.607a1 1 0 010-1.414l.707-.707a1 1 0 111.414 1.414l-.707-.707a1 1 0 01-1.414 0zM1 11a1 1 0 100-2H0a1 1 0 100 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="bg-white shadow-sm sticky top-0 z-20">
-        <div class="container mx-auto px-4 max-w-6xl">
+        <div class="container mx-auto px-4 max-w-4xl">
             <nav class="flex space-x-8">
                 <button id="tabRecommender" class="nav-tab py-4 px-1 text-gray-800 font-semibold border-b-2 border-transparent active">추천 받기</button>
                 <button id="tabCommunity" class="nav-tab py-4 px-1 text-gray-500 font-semibold border-b-2 border-transparent">커뮤니티</button>
@@ -48,12 +67,13 @@
         </div>
     </div>
 
-    <div class="container mx-auto px-4 py-8 max-w-6xl">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
         <div id="recommenderView">
             <div id="now-playing-section" class="mb-12">
                 <h2 class="text-3xl font-bold mb-6 text-gray-800">✨ 요즘 뜨는 신작 (영화 & TV)</h2>
                 <div class="scroll-container flex overflow-x-auto space-x-6 pb-4"></div>
             </div>
+
             <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-8">
                 <h2 class="text-2xl font-bold mb-6 text-gray-800">🌍 국가 선택</h2>
                 <div class="grid grid-cols-3 gap-4" id="regionSection">
@@ -62,8 +82,9 @@
                      <button class="region-btn bg-gray-50 border border-gray-200 rounded-xl p-4 text-center font-medium" data-region="foreign">해외</button>
                 </div>
             </div>
+
             <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-6 text-gray-800">😊 지금 기분이 어떠신가요? (다중 선택 가능)</h2>
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">😊 지금 기분이 어떠신가요?</h2>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="moodSection">
                      <div class="mood-btn bg-gray-50 border border-gray-200 rounded-xl p-4 text-center" data-mood="happy"><div class="text-3xl mb-2">😊</div><div class="font-medium">설레요</div></div>
                      <div class="mood-btn bg-gray-50 border border-gray-200 rounded-xl p-4 text-center" data-mood="sad"><div class="text-3xl mb-2">😔</div><div class="font-medium">우울해요</div></div>
@@ -75,10 +96,11 @@
                      <div class="mood-btn bg-gray-50 border border-gray-200 rounded-xl p-4 text-center" data-mood="curious"><div class="text-3xl mb-2">🤔</div><div class="font-medium">궁금해요</div></div>
                 </div>
             </div>
+
             <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-6 text-gray-800">🎭 어떤 분위기를 원하세요? (다중 선택 가능)</h2>
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">🎭 어떤 분위기를 원하세요?</h2>
                 <div class="flex flex-wrap gap-3" id="genreSection">
-                    <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="10749">#로맨틱 코미디</div>
+                    <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="10749">#로맨스</div>
                     <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="35">#코미디</div>
                     <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="28">#액션</div>
                     <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="12">#모험</div>
@@ -86,20 +108,50 @@
                     <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="80">#범죄</div>
                     <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="99">#다큐멘터리</div>
                     <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="18">#드라마</div>
+                    <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="10751">#가족</div>
+                    <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="14">#판타지</div>
+                    <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="36">#역사</div>
+                    <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="27">#공포</div>
+                    <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="10402">#음악</div>
+                    <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="9648">#미스터리</div>
+                    <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="878">#SF</div>
+                    <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="53">#스릴러</div>
+                    <div class="genre-chip bg-gray-100 px-4 py-2 rounded-full text-sm font-medium" data-genre-id="10752">#전쟁</div>
                 </div>
             </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-8">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">✍️ 더 자세히 알려주세요 (참고용)</h2>
+                <textarea id="userInput" placeholder="찾고 있는 영화의 느낌이나 키워드를 자유롭게 적어주세요." class="w-full h-24 p-4 border border-gray-200 rounded-lg resize-none"></textarea>
+            </div>
+
             <div class="text-center">
                 <button id="getRecommendationBtn" class="bg-indigo-500 text-white font-bold py-4 px-8 rounded-xl text-lg shadow-lg hover:bg-indigo-600 transition">✨ 나만의 추천 받기</button>
             </div>
-            <div id="recommendation-title" class="text-center hidden mt-12">
-                <h2 class="text-3xl font-bold mb-6 text-gray-800">🎯 당신을 위한 추천 결과</h2>
+
+            <div id="recommendation-title" class="hidden mt-12 items-center justify-between">
+                <h2 class="text-3xl font-bold text-gray-800">🎯 당신을 위한 추천 결과</h2>
+                <div id="sort-buttons" class="flex border border-gray-300 rounded-lg">
+                    <button data-sort="popularity" class="sort-btn px-4 py-2 text-sm font-semibold rounded-l-lg selected">인기순</button>
+                    <button data-sort="latest" class="sort-btn px-4 py-2 text-sm font-semibold rounded-r-lg border-l border-gray-300">최신순</button>
+                </div>
             </div>
-            <div id="loadingSection" class="hidden text-center py-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div></div>
+            <div id="loadingSection" class="hidden text-center py-8">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+            </div>
             <div id="recommendationSection" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-8"></div>
         </div>
 
         <div id="communityView" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-gray-800">🍿 감상평 나누기</h2>
+                <button id="openWriteModalBtn" class="bg-indigo-500 text-white font-bold py-2 px-5 rounded-lg shadow-md hover:bg-indigo-600 transition">새 글 작성하기</button>
             </div>
+            <div class="mb-6">
+                <select id="filterSelect" class="w-full p-3 bg-white border border-gray-300 rounded-lg shadow-sm"></select>
+            </div>
+            <div id="postList" class="space-y-4"></div>
+        </div>
     </div>
     
     <div id="allModals"></div>
@@ -112,39 +164,18 @@
         const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
         const POSTS_STORAGE_KEY = 'moodflix_community_posts_v3';
         const moodToGenreMap = { happy: [10749, 35], sad: [18, 10751], angry: [28, 53], calm: [99, 36], excited: [12, 80], tired: [10752, 16], romantic: [10749], curious: [9648, 878] };
-        const EXCLUDE_KEYWORDS = '6290,2985,10377'; 
-
-        // --- NEW: Local Content Database ---
-        const localContentDatabase = [
-            {
-                id: 'local_1',
-                title: '기생충',
-                poster_path: '/gLhYgI4T2tIPpSo61IAGPeOcg27.jpg',
-                vote_average: 8.5,
-                overview: '전원백수로 살 길 막막하지만 사이는 좋은 기택(송강호) 가족...',
-                release_date: '2019-05-30',
-                genre_ids: [35, 18, 53], // 코미디, 드라마, 스릴러
-                is_local: true
-            },
-            {
-                id: 'local_2',
-                title: '극한직업',
-                poster_path: '/v3QyboPM4lE1vTzOc291E8kYy4S.jpg',
-                vote_average: 7.4,
-                overview: '불철주야 달리고 구르지만 실적은 바닥, 해체 위기를 맞는 마약반...',
-                release_date: '2019-01-23',
-                genre_ids: [28, 80, 35], // 액션, 범죄, 코미디
-                is_local: true
-            }
-        ];
-
-        // --- GLOBAL STATE & SELECTORS ---
+        
+        // --- GLOBAL STATE ---
         let selectedMood = null;
         let selectedGenres = [];
-        let selectedRegion = 'all'; 
+        let selectedRegion = 'all';
         let posts = [];
         let currentMovieTitles = new Set();
         let searchTimeout;
+        let currentSortOrder = 'popularity';
+        let currentRecommendationResults = [];
+
+        // --- ELEMENT SELECTORS ---
         const recommenderView = document.getElementById('recommenderView');
         const communityView = document.getElementById('communityView');
         const tabRecommender = document.getElementById('tabRecommender');
@@ -158,77 +189,105 @@
         const loadingSection = document.getElementById('loadingSection');
         const allModalsContainer = document.getElementById('allModals');
         const regionSection = document.getElementById('regionSection');
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
+        const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
+        const sortButtons = document.getElementById('sort-buttons');
         
-        // --- MODAL SETUP (omitted for brevity) ---
-        function setupModals() { /* ... unchanged ... */ }
+        // --- MODAL & TEMPLATE SETUP ---
+        function setupModals() {
+            allModalsContainer.innerHTML = `
+                <div id="writePostModal" class="modal-overlay fixed inset-0 z-30 hidden items-center justify-center p-4"><div class="modal-content bg-white w-full max-w-2xl rounded-lg shadow-lg p-6 opacity-0 -translate-y-8"><h2 class="text-2xl font-bold mb-4 text-gray-800">감상평 작성</h2><form id="postForm"><input type="hidden" id="selectedContentTitle" required><div class="mb-4"><label class="block text-gray-700 text-sm font-bold mb-2">콘텐츠 검색</label><div id="selectedContentDisplay" class="hidden mb-2 p-2 bg-indigo-100 rounded text-indigo-800 font-semibold"></div><input type="search" id="movieSearchInput" class="w-full p-2 border border-gray-300 rounded" placeholder="영화 또는 TV 드라마 제목을 입력하세요..."><div id="searchResults" class="mt-2 max-h-60 overflow-y-auto border border-gray-200 rounded"></div></div><div class="mb-4"><label class="block text-gray-700 text-sm font-bold mb-2">제목</label><input type="text" id="postTitle" class="w-full p-2 border border-gray-300 rounded" required></div><div class="mb-6"><label class="block text-gray-700 text-sm font-bold mb-2">내용</label><textarea id="postContent" rows="6" class="w-full p-2 border border-gray-300 rounded" required></textarea></div><div class="flex items-center justify-end space-x-4"><button type="button" class="close-modal-btn bg-gray-200 font-bold py-2 px-4 rounded">취소</button><button type="submit" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded">저장</button></div></form></div></div>
+                <div id="viewPostModal" class="modal-overlay fixed inset-0 z-30 hidden items-center justify-center p-4"><div class="modal-content bg-white w-full max-w-2xl rounded-lg shadow-lg p-8 opacity-0 -translate-y-8"><h2 id="viewPostTitle" class="text-3xl font-bold mb-2"></h2><p id="viewPostContentTitle" class="text-lg font-semibold text-indigo-500 mb-4"></p><p id="viewPostDate" class="text-sm text-gray-500 mb-6"></p><div id="viewPostContent" class="text-gray-700 leading-relaxed whitespace-pre-wrap"></div><div class="text-right mt-8"><button class="close-modal-btn bg-gray-200 font-bold py-2 px-4 rounded">닫기</button></div></div></div>
+            `;
+            document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => closeModal(btn.closest('.modal-overlay'))));
+            document.getElementById('postForm').addEventListener('submit', handlePostSubmit);
+            const movieSearchInput = document.getElementById('movieSearchInput');
+            movieSearchInput.addEventListener('input', () => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { const query = movieSearchInput.value; if (query.length > 1) { fetchSearch(query); } else { document.getElementById('searchResults').innerHTML = ''; } }, 500); });
+        }
 
         // --- API Functions ---
         async function fetchAPI(url) { try { const r = await fetch(url); if (!r.ok) throw new Error(`E: ${r.statusText}`); return await r.json(); } catch (e) { console.error("API Fetch Error:", e); return null; } }
-        async function fetchNowPlaying() { /* ... unchanged ... */ }
-
-        // --- UPDATED: fetchRecommendations to be Hybrid ---
-        async function fetchRecommendations(genreIdString, regionQueryString) {
-            loadingSection.classList.remove('hidden');
-            recommendationSection.innerHTML = '';
-            recommendationTitle.classList.add('hidden');
-
-            // 1. Fetch from API
-            const url = `${API_BASE_URL}/discover/movie?api_key=${API_KEY}&language=ko-KR&sort_by=popularity.desc&with_genres=${genreIdString}&page=1&include_adult=false&without_keywords=${EXCLUDE_KEYWORDS}${regionQueryString}`;
-            const apiPromise = fetchAPI(url);
-
-            // 2. Filter local database
-            let localResults = [];
-            if (selectedRegion === 'all' || selectedRegion === 'KR') {
-                const selectedGenreIds = genreIdString.split(',').map(id => parseInt(id, 10));
-                localResults = localContentDatabase.filter(movie => 
-                    selectedGenreIds.some(id => movie.genre_ids.includes(id))
-                );
-            }
-            
-            const apiData = await apiPromise;
-            const apiResults = apiData?.results || [];
-
-            // 3. Combine and remove duplicates (local data takes priority)
-            const combinedResults = [...localResults, ...apiResults];
-            const uniqueResults = Array.from(new Map(combinedResults.map(item => [item.title, item])).values());
-            
-            loadingSection.classList.add('hidden');
-            displayRecommendations(uniqueResults);
+        async function fetchTrending() { 
+            const url = `${API_BASE_URL}/trending/all/week?api_key=${API_KEY}&language=ko-KR&include_adult=false&certification_country=KR&certification.lte=15`;
+            const data = await fetchAPI(url); 
+            if (data && data.results) { 
+                const normalizedData = data.results.map(item => ({...item, title: item.title || item.name, release_date: item.release_date || item.first_air_date})); 
+                displayNowPlaying(normalizedData); 
+            } else { 
+                nowPlayingSection.innerHTML = `<p class="text-red-500">최신 콘텐츠 정보를 불러오는 데 실패했습니다.</p>`; 
+            } 
         }
-        
-        async function fetchSearch(query) { /* ... unchanged ... */ }
+        async function fetchRecommendations(genreIdString, regionQueryString) {
+            loadingSection.classList.remove('hidden'); recommendationSection.innerHTML = ''; recommendationTitle.style.display = 'none';
+            const baseDiscoverUrl = `&language=ko-KR&sort_by=popularity.desc&with_genres=${genreIdString}&page=1&include_adult=false&certification_country=KR&certification.lte=15${regionQueryString}`;
+            const movieUrl = `${API_BASE_URL}/discover/movie?api_key=${API_KEY}${baseDiscoverUrl}`;
+            const tvUrl = `${API_BASE_URL}/discover/tv?api_key=${API_KEY}${baseDiscoverUrl}`;
 
-        // --- Display & UI Functions (omitted for brevity) ---
-        function displayNowPlaying(items) { /* ... unchanged ... */ }
-        function displayRecommendations(movies) { /* ... unchanged ... */ }
-        function displaySearchResults(results) { /* ... unchanged ... */ }
-
-        // --- All other functions and event listeners ---
-        // (Full code for setupModals, display functions, tabs, modals, community, etc., is included below)
-        function setupModals() { allModalsContainer.innerHTML = `<div id="writePostModal" class="modal-overlay fixed inset-0 z-30 hidden items-center justify-center p-4"><div class="modal-content bg-white w-full max-w-2xl rounded-lg shadow-lg p-6 opacity-0 -translate-y-8"><h2 class="text-2xl font-bold mb-4 text-gray-800">감상평 작성</h2><form id="postForm"><input type="hidden" id="selectedContentTitle" required><div class="mb-4"><label class="block text-gray-700 text-sm font-bold mb-2">콘텐츠 검색</label><div id="selectedContentDisplay" class="hidden mb-2 p-2 bg-indigo-100 rounded text-indigo-800 font-semibold"></div><input type="search" id="movieSearchInput" class="w-full p-2 border border-gray-300 rounded" placeholder="영화 또는 TV 드라마 제목을 입력하세요..."><div id="searchResults" class="mt-2 max-h-60 overflow-y-auto border border-gray-200 rounded"></div></div><div class="mb-4"><label class="block text-gray-700 text-sm font-bold mb-2">제목</label><input type="text" id="postTitle" class="w-full p-2 border border-gray-300 rounded" required></div><div class="mb-6"><label class="block text-gray-700 text-sm font-bold mb-2">내용</label><textarea id="postContent" rows="6" class="w-full p-2 border border-gray-300 rounded" required></textarea></div><div class="flex items-center justify-end space-x-4"><button type="button" class="close-modal-btn bg-gray-200 font-bold py-2 px-4 rounded">취소</button><button type="submit" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded">저장</button></div></form></div></div><div id="viewPostModal" class="modal-overlay fixed inset-0 z-30 hidden items-center justify-center p-4"><div class="modal-content bg-white w-full max-w-2xl rounded-lg shadow-lg p-8 opacity-0 -translate-y-8"><h2 id="viewPostTitle" class="text-3xl font-bold mb-2"></h2><p id="viewPostContentTitle" class="text-lg font-semibold text-indigo-500 mb-4"></p><p id="viewPostDate" class="text-sm text-gray-500 mb-6"></p><div id="viewPostContent" class="text-gray-700 leading-relaxed whitespace-pre-wrap"></div><div class="text-right mt-8"><button class="close-modal-btn bg-gray-200 font-bold py-2 px-4 rounded">닫기</button></div></div></div>`; document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => closeModal(btn.closest('.modal-overlay')))); document.getElementById('postForm').addEventListener('submit', handlePostSubmit); const movieSearchInput = document.getElementById('movieSearchInput'); movieSearchInput.addEventListener('input', () => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { const query = movieSearchInput.value; if (query.length > 1) { fetchSearch(query); } else { document.getElementById('searchResults').innerHTML = ''; } }, 500); }); }
-        async function fetchNowPlaying() { const movieUrl = `${API_BASE_URL}/movie/now_playing?api_key=${API_KEY}&language=ko-KR&page=1&region=KR`; const tvUrl = `${API_BASE_URL}/tv/on_the_air?api_key=${API_KEY}&language=ko-KR&page=1`; try { const [movieData, tvData] = await Promise.all([ fetchAPI(movieUrl), fetchAPI(tvUrl) ]); const normMovies = (movieData?.results || []).map(i => ({ ...i, type: 'movie' })); const normTvs = (tvData?.results || []).map(i => ({ ...i, title: i.name, release_date: i.first_air_date, type: 'tv' })); const combined = [...normMovies, ...normTvs].sort((a, b) => b.popularity - a.popularity); displayNowPlaying(combined); } catch (e) { console.error("Fetch Now Playing/On Air Error:", e); nowPlayingSection.innerHTML = `<p class="text-red-500">콘텐츠 로딩 실패</p>`; } }
+            try {
+                const [movieData, tvData] = await Promise.all([ fetchAPI(movieUrl), fetchAPI(tvUrl) ]);
+                const normMovies = (movieData?.results || []).map(item => ({ ...item, type: 'movie' }));
+                const normTvs = (tvData?.results || []).map(item => ({ ...item, title: item.name, release_date: item.first_air_date, type: 'tv' }));
+                const combined = [...normMovies, ...normTvs].sort((a, b) => b.popularity - a.popularity);
+                currentRecommendationResults = combined;
+                displayRecommendations();
+            } catch (error) {
+                console.error("Fetch Recommendations Error:", error);
+                recommendationSection.innerHTML = `<p class="text-center text-red-500">추천 정보를 불러오는 데 실패했습니다.</p>`;
+            } finally {
+                loadingSection.classList.add('hidden');
+            }
+        }
         async function fetchSearch(query) { const url = `${API_BASE_URL}/search/multi?api_key=${API_KEY}&language=ko-KR&query=${encodeURIComponent(query)}&include_adult=false`; const data = await fetchAPI(url); if (data && data.results) displaySearchResults(data.results); }
+
+        // --- Display & UI Functions ---
         function displayNowPlaying(items) { nowPlayingSection.innerHTML = ''; items.filter(i => i.poster_path).slice(0, 10).forEach(i => { currentMovieTitles.add(i.title); const c = document.createElement('div'); c.className = 'flex-shrink-0 w-48 bg-white rounded-lg shadow-md overflow-hidden transform hover:-translate-y-2 transition-transform'; c.innerHTML = `<img src="${IMAGE_BASE_URL}${i.poster_path}" class="w-full h-64 object-cover"><div class="p-4"><h3 class="font-bold text-md truncate text-gray-800">${i.title}</h3><p class="text-sm text-gray-600">⭐ ${i.vote_average.toFixed(1)}</p></div>`; nowPlayingSection.appendChild(c); }); }
-        function displayRecommendations(movies) { recommendationSection.innerHTML = ''; if (movies.length > 0) { recommendationTitle.classList.remove('hidden'); } else { recommendationSection.innerHTML = `<p class="text-center text-gray-500">선택하신 조건에 맞는 영화를 찾지 못했어요. 😥</p>`; } movies.slice(0, 8).forEach((m, i) => { currentMovieTitles.add(m.title); const c = document.createElement('div'); c.className = 'bg-white rounded-lg shadow-md overflow-hidden'; const poster = m.poster_path ? `<img src="${IMAGE_BASE_URL}${m.poster_path}" class="w-full h-80 object-cover">` : `<div class="w-full h-80 bg-gray-200 flex items-center justify-center text-6xl">🎬</div>`; c.innerHTML = `${poster}<div class="p-4"><h3 class="font-bold text-lg truncate text-gray-800">${m.title}</h3><p class="text-sm text-gray-600">${m.release_date || ''}</p><p class="text-sm text-gray-600">⭐ ${m.vote_average.toFixed(1)}</p></div>`; recommendationSection.appendChild(c); }); }
-        function displaySearchResults(results) { const cont = document.getElementById('searchResults'); cont.innerHTML = ''; results.filter(r => (r.media_type === 'movie' || r.media_type === 'tv') && r.poster_path).slice(0, 5).forEach(i => { const itemEl = document.createElement('div'); itemEl.className = 'p-2 flex items-center hover:bg-gray-100 cursor-pointer'; const title = i.media_type === 'movie' ? i.title : i.name; const date = i.media_type === 'movie' ? i.release_date : i.first_air_date; itemEl.innerHTML = `<img src="${IMAGE_BASE_URL}${i.poster_path}" class="w-10 h-14 object-cover mr-4 rounded"><div><div class="font-bold">${title}</div><div class="text-sm text-gray-500">${date ? date.split('-')[0] : ''}</div></div>`; itemEl.addEventListener('click', () => { document.getElementById('selectedContentTitle').value = title; document.getElementById('selectedContentDisplay').textContent = `선택됨: ${title}`; document.getElementById('selectedContentDisplay').classList.remove('hidden'); document.getElementById('movieSearchInput').value = ''; cont.innerHTML = ''; }); cont.appendChild(itemEl); }); }
+        function displayRecommendations() {
+            recommendationSection.innerHTML = '';
+            if (currentRecommendationResults.length > 0) {
+                recommendationTitle.style.display = 'flex';
+            } else {
+                recommendationTitle.style.display = 'none';
+                recommendationSection.innerHTML = `<p class="text-center text-gray-500">선택하신 조건에 맞는 콘텐츠를 찾지 못했어요. 😥</p>`;
+                return;
+            }
+            let sortedResults = [...currentRecommendationResults];
+            if (currentSortOrder === 'latest') {
+                sortedResults.sort((a, b) => new Date(b.release_date) - new Date(a.release_date));
+            }
+            const itemsToShow = sortedResults.filter(m => m.poster_path).slice(0, 8);
+            itemsToShow.forEach((m) => { currentMovieTitles.add(m.title); const c = document.createElement('div'); c.className = 'bg-white rounded-lg shadow-md overflow-hidden'; c.innerHTML = `<img src="${IMAGE_BASE_URL}${m.poster_path}" class="w-full h-80 object-cover"><div class="p-4"><h3 class="font-bold text-lg truncate text-gray-800">${m.title}</h3><p class="text-sm text-gray-600">${m.release_date}</p><p class="text-sm text-gray-600">⭐ ${m.vote_average.toFixed(1)}</p></div>`; recommendationSection.appendChild(c); });
+        }
+        function displaySearchResults(results) { const cont = document.getElementById('searchResults'); cont.innerHTML = ''; results.filter(r => (r.media_type === 'movie' || r.media_type === 'tv') && r.poster_path).slice(0, 5).forEach(i => { const itemEl = document.createElement('div'); itemEl.className = 'p-2 flex items-center hover:bg-gray-100 cursor-pointer'; const title = i.title || i.name; const date = i.release_date || i.first_air_date; itemEl.innerHTML = `<img src="${IMAGE_BASE_URL}${i.poster_path}" class="w-10 h-14 object-cover mr-4 rounded"><div><div class="font-bold">${title}</div><div class="text-sm text-gray-500">${date ? date.split('-')[0] : ''}</div></div>`; itemEl.addEventListener('click', () => { document.getElementById('selectedContentTitle').value = title; document.getElementById('selectedContentDisplay').textContent = `선택됨: ${title}`; document.getElementById('selectedContentDisplay').classList.remove('hidden'); document.getElementById('movieSearchInput').value = ''; cont.innerHTML = ''; }); cont.appendChild(itemEl); }); }
+        
+        // --- Tab & Modal Control ---
         function switchTab(activeTab) { if (activeTab === 'recommender') { recommenderView.classList.remove('hidden'); communityView.classList.add('hidden'); tabRecommender.classList.add('active'); tabCommunity.classList.remove('active'); } else { recommenderView.classList.add('hidden'); communityView.classList.remove('hidden'); tabRecommender.classList.remove('active'); tabCommunity.classList.add('active'); loadPosts(); } }
         function openModal(modal) { modal.classList.remove('hidden'); setTimeout(() => modal.querySelector('.modal-content').classList.remove('opacity-0', '-translate-y-8'), 10); }
         function closeModal(modal) { modal.querySelector('.modal-content').classList.add('opacity-0', '-translate-y-8'); setTimeout(() => { modal.classList.add('hidden'); if(modal.id === 'writePostModal') { document.getElementById('postForm').reset(); document.getElementById('searchResults').innerHTML = ''; document.getElementById('selectedContentDisplay').classList.add('hidden'); } }, 300); }
+
+        // --- Community Functions ---
         function loadPosts() { const stored = localStorage.getItem(POSTS_STORAGE_KEY); posts = stored ? JSON.parse(stored) : []; renderPosts(); }
         function savePosts() { localStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(posts)); }
         function renderPosts(filter = 'all') { const postList = document.getElementById('postList'); const filterSelect = document.getElementById('filterSelect'); if(!postList || !filterSelect) return; const allTitles = new Set(posts.map(p => p.contentTitle)); populateSelectWithOptions(filterSelect, Array.from(allTitles), true); filterSelect.value = filter; const toRender = (filter === 'all') ? posts : posts.filter(p => p.contentTitle === filter); postList.innerHTML = ''; if(toRender.length === 0) { postList.innerHTML = `<div class="text-center text-gray-500 py-10">감상평이 없습니다.</div>`; return; } toRender.forEach(p => { const item = document.createElement('div'); item.className = 'bg-white p-5 rounded-lg shadow-md cursor-pointer'; item.innerHTML = `<p class="text-sm font-semibold text-indigo-500">#${p.contentTitle}</p><h3 class="text-xl font-bold text-gray-800">${p.title}</h3>`; item.addEventListener('click', () => { document.getElementById('viewPostTitle').textContent = p.title; document.getElementById('viewPostContentTitle').textContent = `#${p.contentTitle}`; document.getElementById('viewPostDate').textContent = `작성일: ${p.date}`; document.getElementById('viewPostContent').textContent = p.content; openModal(document.getElementById('viewPostModal')); }); postList.appendChild(item); }); }
         function handlePostSubmit(e) { e.preventDefault(); const selectedTitle = document.getElementById('selectedContentTitle').value; if (!selectedTitle) { alert('먼저 콘텐츠를 검색하고 선택해주세요.'); return; } const newPost = { id: Date.now(), contentTitle: selectedTitle, title: document.getElementById('postTitle').value, content: document.getElementById('postContent').value, date: new Date().toLocaleDateString() }; posts.unshift(newPost); savePosts(); renderPosts(); closeModal(document.getElementById('writePostModal')); }
         function populateSelectWithOptions(select, options, includeAll = false) { if(!select) return; select.innerHTML = ''; if(includeAll) select.innerHTML += `<option value="all">모든 콘텐츠 글 보기</option>`; else select.innerHTML += `<option value="" disabled selected>콘텐츠를 선택하세요</option>`; options.sort().forEach(o => select.innerHTML += `<option value="${o}">${o}</option>`); }
+
+        // --- Event Listeners ---
         tabRecommender.addEventListener('click', () => switchTab('recommender'));
         tabCommunity.addEventListener('click', () => switchTab('community'));
         regionSection.addEventListener('click', (e) => { const btn = e.target.closest('.region-btn'); if (!btn) return; document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); selectedRegion = btn.dataset.region; });
         moodSection.addEventListener('click', (e) => { const btn = e.target.closest('.mood-btn'); if(!btn) return; if (btn.classList.contains('selected')) { btn.classList.remove('selected'); selectedMood = null; } else { document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); selectedMood = btn.dataset.mood; } });
         genreSection.addEventListener('click', (e) => { const chip = e.target.closest('.genre-chip'); if(!chip) return; chip.classList.toggle('selected'); const id = chip.dataset.genreId; if(selectedGenres.includes(id)) selectedGenres = selectedGenres.filter(g => g !== id); else selectedGenres.push(id); });
-        getRecommendationBtn.addEventListener('click', () => { const ids = new Set(); if (selectedMood) { (moodToGenreMap[selectedMood] || []).forEach(id => ids.add(id.toString())); } selectedGenres.forEach(id => ids.add(id)); const finalIds = Array.from(ids); if (finalIds.length === 0) { alert('기분이나 장르를 하나 이상 선택해주세요!'); return; } let regionQuery = ''; if (selectedRegion === 'KR') { regionQuery = '&with_origin_country=KR'; } else if (selectedRegion === 'foreign') { regionQuery = '&with_origin_country=US|GB|JP|FR|DE|IN|CA'; } fetchRecommendations(finalIds.join(','), regionQuery); });
+        getRecommendationBtn.addEventListener('click', () => { currentSortOrder = 'popularity'; document.querySelector('.sort-btn[data-sort="popularity"]').classList.add('selected'); document.querySelector('.sort-btn[data-sort="latest"]').classList.remove('selected'); const ids = new Set(); if (selectedMood) { (moodToGenreMap[selectedMood] || []).forEach(id => ids.add(id.toString())); } selectedGenres.forEach(id => ids.add(id)); const finalIds = Array.from(ids); if (finalIds.length === 0) { alert('기분이나 장르를 하나 이상 선택해주세요!'); return; } let regionQuery = ''; if (selectedRegion === 'KR') { regionQuery = '&with_origin_country=KR'; } else if (selectedRegion === 'foreign') { regionQuery = '&with_origin_country=US|GB|JP|FR|DE|IN|CA'; } fetchRecommendations(finalIds.join(','), regionQuery); });
+        sortButtons.addEventListener('click', (e) => { const btn = e.target.closest('.sort-btn'); if (!btn || btn.classList.contains('selected')) return; currentSortOrder = btn.dataset.sort; document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); displayRecommendations(); });
         document.getElementById('openWriteModalBtn').addEventListener('click', () => openModal(document.getElementById('writePostModal')));
         document.getElementById('filterSelect').addEventListener('change', (e) => renderPosts(e.target.value));
+        themeToggleBtn.addEventListener('click', function() { themeToggleDarkIcon.classList.toggle('hidden'); themeToggleLightIcon.classList.toggle('hidden'); if (localStorage.getItem('color-theme')) { if (localStorage.getItem('color-theme') === 'light') { document.body.classList.add('dark'); localStorage.setItem('color-theme', 'dark'); } else { document.body.classList.remove('dark'); localStorage.setItem('color-theme', 'light'); } } else { if (document.body.classList.contains('dark')) { document.body.classList.remove('dark'); localStorage.setItem('color-theme', 'light'); } else { document.body.classList.add('dark'); localStorage.setItem('color-theme', 'dark'); } } });
+        
+        // --- INITIALIZATION ---
         setupModals();
-        fetchNowPlaying();
+        fetchTrending();
+        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.body.classList.add('dark'); themeToggleLightIcon.classList.remove('hidden'); } else { document.body.classList.remove('dark'); themeToggleDarkIcon.classList.remove('hidden'); }
     });
     </script>
 </body>
