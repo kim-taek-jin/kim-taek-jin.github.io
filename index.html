@@ -17,12 +17,15 @@
         body.dark .bg-white { background-color: #1f2937; }
         body.dark .text-gray-800, body.dark .text-gray-900 { color: #f9fafb; }
         body.dark .text-gray-500, body.dark .text-gray-600 { color: #9ca3af; }
+        body.dark .text-gray-700 { color: #d1d5db; }
         body.dark .border-gray-200, body.dark .border-gray-300 { border-color: #4b5563; }
         body.dark .nav-tab { color: #9ca3af; }
         body.dark .nav-tab.active { color: #a5b4fc; border-bottom-color: #a5b4fc; }
         body.dark .mood-btn, body.dark .genre-chip, body.dark .region-btn { background-color: #374151; }
-        body.dark #userInput, body.dark #movieSearchInput { background-color: #374151; border-color: #4b5563; }
+        body.dark #userInput, body.dark #movieSearchInput { background-color: #374151; border-color: #4b5563; color: #f9fafb; }
         body.dark .hero-section { background: linear-gradient(135deg, #3730a3 0%, #1e1b4b 100%); }
+        body.dark .bg-gray-50 { background-color: #374151; }
+        body.dark .bg-gray-100 { background-color: #4b5563; }
         
         /* General Styles */
         .hero-section { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
@@ -162,6 +165,7 @@
         const API_KEY = '84a28355dfa66f454298d9752c6851ae';
         const API_BASE_URL = 'https://api.themoviedb.org/3';
         const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
+        const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/original';
         const POSTS_STORAGE_KEY = 'moodflix_community_posts_v3';
         const moodToGenreMap = { happy: [10749, 35], sad: [18, 10751], angry: [28, 53], calm: [99, 36], excited: [12, 80], tired: [10752, 16], romantic: [10749], curious: [9648, 878] };
         
@@ -207,25 +211,50 @@
         }
 
         // --- API Functions ---
-        async function fetchAPI(url) { try { const r = await fetch(url); if (!r.ok) throw new Error(`E: ${r.statusText}`); return await r.json(); } catch (e) { console.error("API Fetch Error:", e); return null; } }
+        async function fetchAPI(url) { 
+            try { 
+                const r = await fetch(url); 
+                if (!r.ok) throw new Error(`E: ${r.statusText}`); 
+                return await r.json(); 
+            } catch (e) { 
+                console.error("API Fetch Error:", e); 
+                return null; 
+            } 
+        }
+
+        // 콘텐츠 상세 정보 가져오기
+        async function fetchContentDetails(id, type) {
+            const url = `${API_BASE_URL}/${type}/${id}?api_key=${API_KEY}&language=ko-KR&append_to_response=videos,credits`;
+            const data = await fetchAPI(url);
+            return data;
+        }
+
         async function fetchTrending() { 
             const url = `${API_BASE_URL}/trending/all/week?api_key=${API_KEY}&language=ko-KR&include_adult=false&certification_country=KR&certification.lte=15`;
             const data = await fetchAPI(url); 
             if (data && data.results) { 
-                const normalizedData = data.results.map(item => ({...item, title: item.title || item.name, release_date: item.release_date || item.first_air_date})); 
+                const normalizedData = data.results.map(item => ({
+                    ...item, 
+                    title: item.title || item.name, 
+                    release_date: item.release_date || item.first_air_date,
+                    media_type: item.media_type
+                })); 
                 displayNowPlaying(normalizedData); 
             } else { 
                 nowPlayingSection.innerHTML = `<p class="text-red-500">최신 콘텐츠 정보를 불러오는 데 실패했습니다.</p>`; 
             } 
         }
+
         async function fetchRecommendations(genreIdString, regionQueryString) {
-            loadingSection.classList.remove('hidden'); recommendationSection.innerHTML = ''; recommendationTitle.style.display = 'none';
+            loadingSection.classList.remove('hidden'); 
+            recommendationSection.innerHTML = ''; 
+            recommendationTitle.style.display = 'none';
             const baseDiscoverUrl = `&language=ko-KR&sort_by=popularity.desc&with_genres=${genreIdString}&page=1&include_adult=false&certification_country=KR&certification.lte=15${regionQueryString}`;
             const movieUrl = `${API_BASE_URL}/discover/movie?api_key=${API_KEY}${baseDiscoverUrl}`;
             const tvUrl = `${API_BASE_URL}/discover/tv?api_key=${API_KEY}${baseDiscoverUrl}`;
 
             try {
-                const [movieData, tvData] = await Promise.all([ fetchAPI(movieUrl), fetchAPI(tvUrl) ]);
+                const [movieData, tvData] = await Promise.all([fetchAPI(movieUrl), fetchAPI(tvUrl)]);
                 const normMovies = (movieData?.results || []).map(item => ({ ...item, type: 'movie' }));
                 const normTvs = (tvData?.results || []).map(item => ({ ...item, title: item.name, release_date: item.first_air_date, type: 'tv' }));
                 const combined = [...normMovies, ...normTvs].sort((a, b) => b.popularity - a.popularity);
@@ -238,10 +267,271 @@
                 loadingSection.classList.add('hidden');
             }
         }
-        async function fetchSearch(query) { const url = `${API_BASE_URL}/search/multi?api_key=${API_KEY}&language=ko-KR&query=${encodeURIComponent(query)}&include_adult=false`; const data = await fetchAPI(url); if (data && data.results) displaySearchResults(data.results); }
+
+        async function fetchSearch(query) { 
+            const url = `${API_BASE_URL}/search/multi?api_key=${API_KEY}&language=ko-KR&query=${encodeURIComponent(query)}&include_adult=false`; 
+            const data = await fetchAPI(url); 
+            if (data && data.results) displaySearchResults(data.results); 
+        }
+
+        // --- 상세 모달 표시 함수 ---
+        async function showContentDetailModal(contentId, contentType) {
+            // 로딩 표시
+            const loadingModal = document.createElement('div');
+            loadingModal.className = 'modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4';
+            loadingModal.innerHTML = `
+                <div class="bg-white rounded-lg p-8">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+                    <p class="mt-4 text-gray-600">정보를 불러오는 중...</p>
+                </div>
+            `;
+            document.body.appendChild(loadingModal);
+
+            // 상세 정보 가져오기
+            const details = await fetchContentDetails(contentId, contentType);
+            loadingModal.remove();
+
+            if (!details) {
+                alert('콘텐츠 정보를 불러올 수 없습니다.');
+                return;
+            }
+
+            // 예고편 찾기
+            const trailer = details.videos?.results?.find(v => 
+                v.type === 'Trailer' && v.site === 'YouTube'
+            ) || details.videos?.results?.[0];
+
+            // 장르 문자열 생성
+            const genres = details.genres?.map(g => g.name).join(', ') || '정보 없음';
+
+            // 런타임 처리
+            let runtime = '';
+            if (contentType === 'movie' && details.runtime) {
+                runtime = `${details.runtime}분`;
+            } else if (contentType === 'tv' && details.episode_run_time?.[0]) {
+                runtime = `에피소드당 약 ${details.episode_run_time[0]}분`;
+            }
+
+            // 모달 생성
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="modal-content bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden opacity-0 -translate-y-8 max-h-[90vh] flex flex-col">
+                    <div class="relative h-96 bg-gradient-to-b from-black/50 to-black/70 flex-shrink-0">
+                        ${details.backdrop_path ? `
+                            <img src="${BACKDROP_BASE_URL}${details.backdrop_path}" 
+                                 class="absolute inset-0 w-full h-full object-cover -z-10" 
+                                 alt="${details.title || details.name}">
+                        ` : `
+                            <div class="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 -z-10"></div>
+                        `}
+                        
+                        <button class="close-detail-modal absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white rounded-full p-3 transition backdrop-blur-sm">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+
+                        <div class="absolute bottom-0 left-0 right-0 p-8 text-white">
+                            <div class="flex items-start space-x-6">
+                                ${details.poster_path ? `
+                                    <img src="${IMAGE_BASE_URL}${details.poster_path}" 
+                                         class="w-32 h-48 object-cover rounded-lg shadow-2xl hidden md:block" 
+                                         alt="${details.title || details.name}">
+                                ` : ''}
+                                <div class="flex-1">
+                                    <h2 class="text-4xl font-bold mb-3">${details.title || details.name}</h2>
+                                    <div class="flex flex-wrap items-center gap-4 text-sm mb-3">
+                                        <span class="flex items-center bg-yellow-500 text-black px-3 py-1 rounded-full font-bold">
+                                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                            </svg>
+                                            ${details.vote_average?.toFixed(1) || 'N/A'}
+                                        </span>
+                                        ${details.release_date || details.first_air_date ? `
+                                            <span class="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
+                                                ${(details.release_date || details.first_air_date).split('-')[0]}
+                                            </span>
+                                        ` : ''}
+                                        ${runtime ? `
+                                            <span class="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
+                                                ${runtime}
+                                            </span>
+                                        ` : ''}
+                                        ${contentType === 'tv' && details.number_of_seasons ? `
+                                            <span class="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
+                                                시즌 ${details.number_of_seasons}개
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                    <div class="flex flex-wrap gap-2">
+                                        ${details.genres?.map(g => `
+                                            <span class="bg-indigo-500/80 px-3 py-1 rounded-full text-xs backdrop-blur-sm">
+                                                ${g.name}
+                                            </span>
+                                        `).join('') || ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-8 overflow-y-auto">
+                        <div class="mb-8">
+                            <h3 class="text-2xl font-bold mb-3 text-gray-800">📖 줄거리</h3>
+                            <p class="text-gray-700 leading-relaxed">
+                                ${details.overview || '줄거리 정보가 제공되지 않습니다.'}
+                            </p>
+                        </div>
+
+                        ${trailer ? `
+                            <div class="mb-8">
+                                <h3 class="text-2xl font-bold mb-4 text-gray-800">🎬 예고편</h3>
+                                <div class="relative aspect-video rounded-lg overflow-hidden bg-black">
+                                    <iframe 
+                                        src="https://www.youtube.com/embed/${trailer.key}" 
+                                        class="absolute inset-0 w-full h-full"
+                                        frameborder="0" 
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                        allowfullscreen>
+                                    </iframe>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${details.credits?.cast?.length > 0 ? `
+                            <div class="mb-8">
+                                <h3 class="text-2xl font-bold mb-4 text-gray-800">🎭 출연진</h3>
+                                <div class="scroll-container flex overflow-x-auto space-x-4 pb-4">
+                                    ${details.credits.cast.slice(0, 10).map(actor => `
+                                        <div class="flex-shrink-0 text-center w-32">
+                                            <div class="relative mb-2">
+                                                ${actor.profile_path ? `
+                                                    <img src="${IMAGE_BASE_URL}${actor.profile_path}" 
+                                                         class="w-32 h-40 object-cover rounded-lg shadow-md" 
+                                                         alt="${actor.name}">
+                                                ` : `
+                                                    <div class="w-32 h-40 bg-gray-200 rounded-lg flex items-center justify-center">
+                                                        <svg class="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                                                        </svg>
+                                                    </div>
+                                                `}
+                                            </div>
+                                            <p class="text-sm font-semibold text-gray-800 truncate">${actor.name}</p>
+                                            <p class="text-xs text-gray-500 truncate">${actor.character || ''}</p>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${details.credits?.crew?.length > 0 ? `
+                            <div class="mb-8">
+                                <h3 class="text-2xl font-bold mb-4 text-gray-800">🎥 제작진</h3>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    ${details.credits.crew
+                                        .filter(c => ['Director', 'Producer', 'Writer', 'Screenplay'].includes(c.job))
+                                        .slice(0, 6)
+                                        .map(crew => `
+                                            <div class="bg-gray-50 p-3 rounded-lg">
+                                                <p class="font-semibold text-gray-800">${crew.name}</p>
+                                                <p class="text-sm text-gray-500">${crew.job}</p>
+                                            </div>
+                                        `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            ${details.production_companies?.length > 0 ? `
+                                <div>
+                                    <h4 class="font-bold text-gray-800 mb-2">제작사</h4>
+                                    <p class="text-gray-600">${details.production_companies.map(c => c.name).join(', ')}</p>
+                                </div>
+                            ` : ''}
+                            ${details.production_countries?.length > 0 ? `
+                                <div>
+                                    <h4 class="font-bold text-gray-800 mb-2">제작 국가</h4>
+                                    <p class="text-gray-600">${details.production_countries.map(c => c.name).join(', ')}</p>
+                                </div>
+                            ` : ''}
+                            ${details.spoken_languages?.length > 0 ? `
+                                <div>
+                                    <h4 class="font-bold text-gray-800 mb-2">언어</h4>
+                                    <p class="text-gray-600">${details.spoken_languages.map(l => {
+                                        const name = l.korean_name || l.name || '';
+                                        if (name.includes('한국어') || name.includes('조선말')) {
+                                            return '한국어';
+                                        }
+                                        return name;
+                                    }).join(', ')}</p>
+                                </div>
+                            ` : ''}
+                            ${details.budget ? `
+                                <div>
+                                    <h4 class="font-bold text-gray-800 mb-2">제작비</h4>
+                                    <p class="text-gray-600">$${details.budget.toLocaleString()}</p>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <div class="text-center pt-4 border-t flex-shrink-0">
+                            <button class="close-detail-modal bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-lg transition">
+                                닫기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            
+            // 애니메이션
+            setTimeout(() => {
+                modal.querySelector('.modal-content').classList.remove('opacity-0', '-translate-y-8');
+            }, 10);
+
+            // 닫기 이벤트
+            modal.querySelectorAll('.close-detail-modal').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    modal.querySelector('.modal-content').classList.add('opacity-0', '-translate-y-8');
+                    setTimeout(() => modal.remove(), 300);
+                });
+            });
+
+            // 배경 클릭 시 닫기
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.querySelector('.modal-content').classList.add('opacity-0', '-translate-y-8');
+                    setTimeout(() => modal.remove(), 300);
+                }
+            });
+        }
 
         // --- Display & UI Functions ---
-        function displayNowPlaying(items) { nowPlayingSection.innerHTML = ''; items.filter(i => i.poster_path).slice(0, 10).forEach(i => { currentMovieTitles.add(i.title); const c = document.createElement('div'); c.className = 'flex-shrink-0 w-48 bg-white rounded-lg shadow-md overflow-hidden transform hover:-translate-y-2 transition-transform'; c.innerHTML = `<img src="${IMAGE_BASE_URL}${i.poster_path}" class="w-full h-64 object-cover"><div class="p-4"><h3 class="font-bold text-md truncate text-gray-800">${i.title}</h3><p class="text-sm text-gray-600">⭐ ${i.vote_average.toFixed(1)}</p></div>`; nowPlayingSection.appendChild(c); }); }
+        function displayNowPlaying(items) { 
+            nowPlayingSection.innerHTML = ''; 
+            items.filter(i => i.poster_path).slice(0, 10).forEach(i => { 
+                currentMovieTitles.add(i.title); 
+                const c = document.createElement('div'); 
+                c.className = 'flex-shrink-0 w-48 bg-white rounded-lg shadow-md overflow-hidden transform hover:-translate-y-2 transition-transform cursor-pointer'; 
+                c.innerHTML = `
+                    <img src="${IMAGE_BASE_URL}${i.poster_path}" class="w-full h-64 object-cover">
+                    <div class="p-4">
+                        <h3 class="font-bold text-md truncate text-gray-800">${i.title}</h3>
+                        <p class="text-sm text-gray-600">⭐ ${i.vote_average.toFixed(1)}</p>
+                    </div>
+                `; 
+                // 클릭 이벤트 추가
+                c.addEventListener('click', () => {
+                    const type = i.media_type === 'tv' ? 'tv' : 'movie';
+                    showContentDetailModal(i.id, type);
+                });
+                nowPlayingSection.appendChild(c); 
+            }); 
+        }
+
         function displayRecommendations() {
             recommendationSection.innerHTML = '';
             if (currentRecommendationResults.length > 0) {
@@ -256,38 +546,249 @@
                 sortedResults.sort((a, b) => new Date(b.release_date) - new Date(a.release_date));
             }
             const itemsToShow = sortedResults.filter(m => m.poster_path).slice(0, 8);
-            itemsToShow.forEach((m) => { currentMovieTitles.add(m.title); const c = document.createElement('div'); c.className = 'bg-white rounded-lg shadow-md overflow-hidden'; c.innerHTML = `<img src="${IMAGE_BASE_URL}${m.poster_path}" class="w-full h-80 object-cover"><div class="p-4"><h3 class="font-bold text-lg truncate text-gray-800">${m.title}</h3><p class="text-sm text-gray-600">${m.release_date}</p><p class="text-sm text-gray-600">⭐ ${m.vote_average.toFixed(1)}</p></div>`; recommendationSection.appendChild(c); });
+            itemsToShow.forEach((m) => { 
+                currentMovieTitles.add(m.title); 
+                const c = document.createElement('div'); 
+                c.className = 'bg-white rounded-lg shadow-md overflow-hidden cursor-pointer transform hover:scale-105 transition-transform'; 
+                c.innerHTML = `
+                    <img src="${IMAGE_BASE_URL}${m.poster_path}" class="w-full h-80 object-cover">
+                    <div class="p-4">
+                        <h3 class="font-bold text-lg truncate text-gray-800">${m.title}</h3>
+                        <p class="text-sm text-gray-600">${m.release_date}</p>
+                        <p class="text-sm text-gray-600">⭐ ${m.vote_average.toFixed(1)}</p>
+                    </div>
+                `; 
+                // 클릭 이벤트 추가
+                c.addEventListener('click', () => {
+                    showContentDetailModal(m.id, m.type);
+                });
+                recommendationSection.appendChild(c); 
+            });
         }
-        function displaySearchResults(results) { const cont = document.getElementById('searchResults'); cont.innerHTML = ''; results.filter(r => (r.media_type === 'movie' || r.media_type === 'tv') && r.poster_path).slice(0, 5).forEach(i => { const itemEl = document.createElement('div'); itemEl.className = 'p-2 flex items-center hover:bg-gray-100 cursor-pointer'; const title = i.title || i.name; const date = i.release_date || i.first_air_date; itemEl.innerHTML = `<img src="${IMAGE_BASE_URL}${i.poster_path}" class="w-10 h-14 object-cover mr-4 rounded"><div><div class="font-bold">${title}</div><div class="text-sm text-gray-500">${date ? date.split('-')[0] : ''}</div></div>`; itemEl.addEventListener('click', () => { document.getElementById('selectedContentTitle').value = title; document.getElementById('selectedContentDisplay').textContent = `선택됨: ${title}`; document.getElementById('selectedContentDisplay').classList.remove('hidden'); document.getElementById('movieSearchInput').value = ''; cont.innerHTML = ''; }); cont.appendChild(itemEl); }); }
+
+        function displaySearchResults(results) { 
+            const cont = document.getElementById('searchResults'); 
+            cont.innerHTML = ''; 
+            results.filter(r => (r.media_type === 'movie' || r.media_type === 'tv') && r.poster_path).slice(0, 5).forEach(i => { 
+                const itemEl = document.createElement('div'); 
+                itemEl.className = 'p-2 flex items-center hover:bg-gray-100 cursor-pointer'; 
+                const title = i.title || i.name; 
+                const date = i.release_date || i.first_air_date; 
+                itemEl.innerHTML = `
+                    <img src="${IMAGE_BASE_URL}${i.poster_path}" class="w-10 h-14 object-cover mr-4 rounded">
+                    <div>
+                        <div class="font-bold">${title}</div>
+                        <div class="text-sm text-gray-500">${date ? date.split('-')[0] : ''}</div>
+                    </div>
+                `; 
+                itemEl.addEventListener('click', () => { 
+                    document.getElementById('selectedContentTitle').value = title; 
+                    document.getElementById('selectedContentDisplay').textContent = `선택됨: ${title}`; 
+                    document.getElementById('selectedContentDisplay').classList.remove('hidden'); 
+                    document.getElementById('movieSearchInput').value = ''; 
+                    cont.innerHTML = ''; 
+                }); 
+                cont.appendChild(itemEl); 
+            }); 
+        }
         
         // --- Tab & Modal Control ---
-        function switchTab(activeTab) { if (activeTab === 'recommender') { recommenderView.classList.remove('hidden'); communityView.classList.add('hidden'); tabRecommender.classList.add('active'); tabCommunity.classList.remove('active'); } else { recommenderView.classList.add('hidden'); communityView.classList.remove('hidden'); tabRecommender.classList.remove('active'); tabCommunity.classList.add('active'); loadPosts(); } }
-        function openModal(modal) { modal.classList.remove('hidden'); setTimeout(() => modal.querySelector('.modal-content').classList.remove('opacity-0', '-translate-y-8'), 10); }
-        function closeModal(modal) { modal.querySelector('.modal-content').classList.add('opacity-0', '-translate-y-8'); setTimeout(() => { modal.classList.add('hidden'); if(modal.id === 'writePostModal') { document.getElementById('postForm').reset(); document.getElementById('searchResults').innerHTML = ''; document.getElementById('selectedContentDisplay').classList.add('hidden'); } }, 300); }
+        function switchTab(activeTab) { 
+            if (activeTab === 'recommender') { 
+                recommenderView.classList.remove('hidden'); 
+                communityView.classList.add('hidden'); 
+                tabRecommender.classList.add('active'); 
+                tabCommunity.classList.remove('active'); 
+            } else { 
+                recommenderView.classList.add('hidden'); 
+                communityView.classList.remove('hidden'); 
+                tabRecommender.classList.remove('active'); 
+                tabCommunity.classList.add('active'); 
+                loadPosts(); 
+            } 
+        }
+
+        function openModal(modal) { 
+            modal.classList.remove('hidden'); 
+            setTimeout(() => modal.querySelector('.modal-content').classList.remove('opacity-0', '-translate-y-8'), 10); 
+        }
+
+        function closeModal(modal) { 
+            modal.querySelector('.modal-content').classList.add('opacity-0', '-translate-y-8'); 
+            setTimeout(() => { 
+                modal.classList.add('hidden'); 
+                if(modal.id === 'writePostModal') { 
+                    document.getElementById('postForm').reset(); 
+                    document.getElementById('searchResults').innerHTML = ''; 
+                    document.getElementById('selectedContentDisplay').classList.add('hidden'); 
+                } 
+            }, 300); 
+        }
 
         // --- Community Functions ---
-        function loadPosts() { const stored = localStorage.getItem(POSTS_STORAGE_KEY); posts = stored ? JSON.parse(stored) : []; renderPosts(); }
-        function savePosts() { localStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(posts)); }
-        function renderPosts(filter = 'all') { const postList = document.getElementById('postList'); const filterSelect = document.getElementById('filterSelect'); if(!postList || !filterSelect) return; const allTitles = new Set(posts.map(p => p.contentTitle)); populateSelectWithOptions(filterSelect, Array.from(allTitles), true); filterSelect.value = filter; const toRender = (filter === 'all') ? posts : posts.filter(p => p.contentTitle === filter); postList.innerHTML = ''; if(toRender.length === 0) { postList.innerHTML = `<div class="text-center text-gray-500 py-10">감상평이 없습니다.</div>`; return; } toRender.forEach(p => { const item = document.createElement('div'); item.className = 'bg-white p-5 rounded-lg shadow-md cursor-pointer'; item.innerHTML = `<p class="text-sm font-semibold text-indigo-500">#${p.contentTitle}</p><h3 class="text-xl font-bold text-gray-800">${p.title}</h3>`; item.addEventListener('click', () => { document.getElementById('viewPostTitle').textContent = p.title; document.getElementById('viewPostContentTitle').textContent = `#${p.contentTitle}`; document.getElementById('viewPostDate').textContent = `작성일: ${p.date}`; document.getElementById('viewPostContent').textContent = p.content; openModal(document.getElementById('viewPostModal')); }); postList.appendChild(item); }); }
-        function handlePostSubmit(e) { e.preventDefault(); const selectedTitle = document.getElementById('selectedContentTitle').value; if (!selectedTitle) { alert('먼저 콘텐츠를 검색하고 선택해주세요.'); return; } const newPost = { id: Date.now(), contentTitle: selectedTitle, title: document.getElementById('postTitle').value, content: document.getElementById('postContent').value, date: new Date().toLocaleDateString() }; posts.unshift(newPost); savePosts(); renderPosts(); closeModal(document.getElementById('writePostModal')); }
-        function populateSelectWithOptions(select, options, includeAll = false) { if(!select) return; select.innerHTML = ''; if(includeAll) select.innerHTML += `<option value="all">모든 콘텐츠 글 보기</option>`; else select.innerHTML += `<option value="" disabled selected>콘텐츠를 선택하세요</option>`; options.sort().forEach(o => select.innerHTML += `<option value="${o}">${o}</option>`); }
+        function loadPosts() { 
+            const stored = localStorage.getItem(POSTS_STORAGE_KEY); 
+            posts = stored ? JSON.parse(stored) : []; 
+            renderPosts(); 
+        }
+
+        function savePosts() { 
+            localStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(posts)); 
+        }
+
+        function renderPosts(filter = 'all') { 
+            const postList = document.getElementById('postList'); 
+            const filterSelect = document.getElementById('filterSelect'); 
+            if(!postList || !filterSelect) return; 
+            const allTitles = new Set(posts.map(p => p.contentTitle)); 
+            populateSelectWithOptions(filterSelect, Array.from(allTitles), true); 
+            filterSelect.value = filter; 
+            const toRender = (filter === 'all') ? posts : posts.filter(p => p.contentTitle === filter); 
+            postList.innerHTML = ''; 
+            if(toRender.length === 0) { 
+                postList.innerHTML = `<div class="text-center text-gray-500 py-10">감상평이 없습니다.</div>`; 
+                return; 
+            } 
+            toRender.forEach(p => { 
+                const item = document.createElement('div'); 
+                item.className = 'bg-white p-5 rounded-lg shadow-md cursor-pointer'; 
+                item.innerHTML = `
+                    <p class="text-sm font-semibold text-indigo-500">#${p.contentTitle}</p>
+                    <h3 class="text-xl font-bold text-gray-800">${p.title}</h3>
+                `; 
+                item.addEventListener('click', () => { 
+                    document.getElementById('viewPostTitle').textContent = p.title; 
+                    document.getElementById('viewPostContentTitle').textContent = `#${p.contentTitle}`; 
+                    document.getElementById('viewPostDate').textContent = `작성일: ${p.date}`; 
+                    document.getElementById('viewPostContent').textContent = p.content; 
+                    openModal(document.getElementById('viewPostModal')); 
+                }); 
+                postList.appendChild(item); 
+            }); 
+        }
+
+        function handlePostSubmit(e) { 
+            e.preventDefault(); 
+            const selectedTitle = document.getElementById('selectedContentTitle').value; 
+            if (!selectedTitle) { 
+                alert('먼저 콘텐츠를 검색하고 선택해주세요.'); 
+                return; 
+            } 
+            const newPost = { 
+                id: Date.now(), 
+                contentTitle: selectedTitle, 
+                title: document.getElementById('postTitle').value, 
+                content: document.getElementById('postContent').value, 
+                date: new Date().toLocaleDateString() 
+            }; 
+            posts.unshift(newPost); 
+            savePosts(); 
+            renderPosts(); 
+            closeModal(document.getElementById('writePostModal')); 
+        }
+
+        function populateSelectWithOptions(select, options, includeAll = false) { 
+            if(!select) return; 
+            select.innerHTML = ''; 
+            if(includeAll) select.innerHTML += `<option value="all">모든 콘텐츠 글 보기</option>`; 
+            else select.innerHTML += `<option value="" disabled selected>콘텐츠를 선택하세요</option>`; 
+            options.sort().forEach(o => select.innerHTML += `<option value="${o}">${o}</option>`); 
+        }
 
         // --- Event Listeners ---
         tabRecommender.addEventListener('click', () => switchTab('recommender'));
         tabCommunity.addEventListener('click', () => switchTab('community'));
-        regionSection.addEventListener('click', (e) => { const btn = e.target.closest('.region-btn'); if (!btn) return; document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); selectedRegion = btn.dataset.region; });
-        moodSection.addEventListener('click', (e) => { const btn = e.target.closest('.mood-btn'); if(!btn) return; if (btn.classList.contains('selected')) { btn.classList.remove('selected'); selectedMood = null; } else { document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); selectedMood = btn.dataset.mood; } });
-        genreSection.addEventListener('click', (e) => { const chip = e.target.closest('.genre-chip'); if(!chip) return; chip.classList.toggle('selected'); const id = chip.dataset.genreId; if(selectedGenres.includes(id)) selectedGenres = selectedGenres.filter(g => g !== id); else selectedGenres.push(id); });
-        getRecommendationBtn.addEventListener('click', () => { currentSortOrder = 'popularity'; document.querySelector('.sort-btn[data-sort="popularity"]').classList.add('selected'); document.querySelector('.sort-btn[data-sort="latest"]').classList.remove('selected'); const ids = new Set(); if (selectedMood) { (moodToGenreMap[selectedMood] || []).forEach(id => ids.add(id.toString())); } selectedGenres.forEach(id => ids.add(id)); const finalIds = Array.from(ids); if (finalIds.length === 0) { alert('기분이나 장르를 하나 이상 선택해주세요!'); return; } let regionQuery = ''; if (selectedRegion === 'KR') { regionQuery = '&with_origin_country=KR'; } else if (selectedRegion === 'foreign') { regionQuery = '&with_origin_country=US|GB|JP|FR|DE|IN|CA'; } fetchRecommendations(finalIds.join(','), regionQuery); });
-        sortButtons.addEventListener('click', (e) => { const btn = e.target.closest('.sort-btn'); if (!btn || btn.classList.contains('selected')) return; currentSortOrder = btn.dataset.sort; document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); displayRecommendations(); });
+        regionSection.addEventListener('click', (e) => { 
+            const btn = e.target.closest('.region-btn'); 
+            if (!btn) return; 
+            document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('selected')); 
+            btn.classList.add('selected'); 
+            selectedRegion = btn.dataset.region; 
+        });
+        moodSection.addEventListener('click', (e) => { 
+            const btn = e.target.closest('.mood-btn'); 
+            if(!btn) return; 
+            if (btn.classList.contains('selected')) { 
+                btn.classList.remove('selected'); 
+                selectedMood = null; 
+            } else { 
+                document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected')); 
+                btn.classList.add('selected'); 
+                selectedMood = btn.dataset.mood; 
+            } 
+        });
+        genreSection.addEventListener('click', (e) => { 
+            const chip = e.target.closest('.genre-chip'); 
+            if(!chip) return; 
+            chip.classList.toggle('selected'); 
+            const id = chip.dataset.genreId; 
+            if(selectedGenres.includes(id)) selectedGenres = selectedGenres.filter(g => g !== id); 
+            else selectedGenres.push(id); 
+        });
+        getRecommendationBtn.addEventListener('click', () => { 
+            currentSortOrder = 'popularity'; 
+            document.querySelector('.sort-btn[data-sort="popularity"]').classList.add('selected'); 
+            document.querySelector('.sort-btn[data-sort="latest"]').classList.remove('selected'); 
+            const ids = new Set(); 
+            if (selectedMood) { 
+                (moodToGenreMap[selectedMood] || []).forEach(id => ids.add(id.toString())); 
+            } 
+            selectedGenres.forEach(id => ids.add(id)); 
+            const finalIds = Array.from(ids); 
+            if (finalIds.length === 0) { 
+                alert('기분이나 장르를 하나 이상 선택해주세요!'); 
+                return; 
+            } 
+            let regionQuery = ''; 
+            if (selectedRegion === 'KR') { 
+                regionQuery = '&with_origin_country=KR'; 
+            } else if (selectedRegion === 'foreign') { 
+                regionQuery = '&with_origin_country=US|GB|JP|FR|DE|IN|CA'; 
+            } 
+            fetchRecommendations(finalIds.join(','), regionQuery); 
+        });
+        sortButtons.addEventListener('click', (e) => { 
+            const btn = e.target.closest('.sort-btn'); 
+            if (!btn || btn.classList.contains('selected')) return; 
+            currentSortOrder = btn.dataset.sort; 
+            document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('selected')); 
+            btn.classList.add('selected'); 
+            displayRecommendations(); 
+        });
         document.getElementById('openWriteModalBtn').addEventListener('click', () => openModal(document.getElementById('writePostModal')));
         document.getElementById('filterSelect').addEventListener('change', (e) => renderPosts(e.target.value));
-        themeToggleBtn.addEventListener('click', function() { themeToggleDarkIcon.classList.toggle('hidden'); themeToggleLightIcon.classList.toggle('hidden'); if (localStorage.getItem('color-theme')) { if (localStorage.getItem('color-theme') === 'light') { document.body.classList.add('dark'); localStorage.setItem('color-theme', 'dark'); } else { document.body.classList.remove('dark'); localStorage.setItem('color-theme', 'light'); } } else { if (document.body.classList.contains('dark')) { document.body.classList.remove('dark'); localStorage.setItem('color-theme', 'light'); } else { document.body.classList.add('dark'); localStorage.setItem('color-theme', 'dark'); } } });
+        themeToggleBtn.addEventListener('click', function() { 
+            themeToggleDarkIcon.classList.toggle('hidden'); 
+            themeToggleLightIcon.classList.toggle('hidden'); 
+            if (localStorage.getItem('color-theme')) { 
+                if (localStorage.getItem('color-theme') === 'light') { 
+                    document.body.classList.add('dark'); 
+                    localStorage.setItem('color-theme', 'dark'); 
+                } else { 
+                    document.body.classList.remove('dark'); 
+                    localStorage.setItem('color-theme', 'light'); 
+                } 
+            } else { 
+                if (document.body.classList.contains('dark')) { 
+                    document.body.classList.remove('dark'); 
+                    localStorage.setItem('color-theme', 'light'); 
+                } else { 
+                    document.body.classList.add('dark'); 
+                    localStorage.setItem('color-theme', 'dark'); 
+                } 
+            } 
+        });
         
         // --- INITIALIZATION ---
         setupModals();
         fetchTrending();
-        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.body.classList.add('dark'); themeToggleLightIcon.classList.remove('hidden'); } else { document.body.classList.remove('dark'); themeToggleDarkIcon.classList.remove('hidden'); }
+        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { 
+            document.body.classList.add('dark'); 
+            themeToggleLightIcon.classList.remove('hidden'); 
+        } else { 
+            document.body.classList.remove('dark'); 
+            themeToggleDarkIcon.classList.remove('hidden'); 
+        }
     });
     </script>
 </body>
