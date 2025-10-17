@@ -124,8 +124,8 @@
             </div>
 
             <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-4 text-gray-800">✍️ 더 자세히 알려주세요 (참고용)</h2>
-                <textarea id="userInput" placeholder="찾고 있는 영화의 느낌이나 키워드를 자유롭게 적어주세요." class="w-full h-24 p-4 border border-gray-200 rounded-lg resize-none"></textarea>
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">✍️ 더 자세히 알려주세요 (키워드)</h2>
+                <textarea id="userInput" placeholder="찾고 있는 영화의 느낌이나 키워드를 자유롭게 적어주세요. (예: 주인공 성장, 우주여행, 타임슬립)" class="w-full h-24 p-4 border border-gray-200 rounded-lg resize-none"></textarea>
             </div>
 
             <div class="text-center">
@@ -245,11 +245,30 @@
             } 
         }
 
-        async function fetchRecommendations(genreIdString, regionQueryString) {
+        // --- 키워드 기능 추가 ---
+        // 텍스트로 키워드 ID를 검색하는 함수
+        async function fetchKeywordIds(query) {
+            const url = `${API_BASE_URL}/search/keyword?api_key=${API_KEY}&query=${encodeURIComponent(query)}`;
+            const data = await fetchAPI(url);
+            if (data && data.results && data.results.length > 0) {
+                // 가장 첫 번째로 검색된 키워드의 ID를 배열로 반환
+                return [data.results[0].id];
+            }
+            return []; // 검색 결과가 없으면 빈 배열 반환
+        }
+
+        // --- 키워드 기능 추가 ---
+        // fetchRecommendations 함수에 keywordIdString 파라미터 추가
+        async function fetchRecommendations(genreIdString, regionQueryString, keywordIdString) {
             loadingSection.classList.remove('hidden'); 
             recommendationSection.innerHTML = ''; 
             recommendationTitle.style.display = 'none';
-            const baseDiscoverUrl = `&language=ko-KR&sort_by=popularity.desc&with_genres=${genreIdString}&page=1&include_adult=false&certification_country=KR&certification.lte=15${regionQueryString}`;
+
+            // --- 키워드 기능 추가 ---
+            // 키워드 ID가 있으면 API 요청에 추가
+            const keywordQuery = keywordIdString ? `&with_keywords=${keywordIdString}` : '';
+
+            const baseDiscoverUrl = `&language=ko-KR&sort_by=popularity.desc&with_genres=${genreIdString}&page=1&include_adult=false&certification_country=KR&certification.lte=15${regionQueryString}${keywordQuery}`;
             const movieUrl = `${API_BASE_URL}/discover/movie?api_key=${API_KEY}${baseDiscoverUrl}`;
             const tvUrl = `${API_BASE_URL}/discover/tv?api_key=${API_KEY}${baseDiscoverUrl}`;
 
@@ -276,18 +295,11 @@
 
         // --- 상세 모달 표시 함수 ---
         async function showContentDetailModal(contentId, contentType) {
-            // 로딩 표시
             const loadingModal = document.createElement('div');
             loadingModal.className = 'modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4';
-            loadingModal.innerHTML = `
-                <div class="bg-white rounded-lg p-8">
-                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
-                    <p class="mt-4 text-gray-600">정보를 불러오는 중...</p>
-                </div>
-            `;
+            loadingModal.innerHTML = `<div class="bg-white rounded-lg p-8"><div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div><p class="mt-4 text-gray-600">정보를 불러오는 중...</p></div>`;
             document.body.appendChild(loadingModal);
 
-            // 상세 정보 가져오기
             const details = await fetchContentDetails(contentId, contentType);
             loadingModal.remove();
 
@@ -296,15 +308,8 @@
                 return;
             }
 
-            // 예고편 찾기
-            const trailer = details.videos?.results?.find(v => 
-                v.type === 'Trailer' && v.site === 'YouTube'
-            ) || details.videos?.results?.[0];
-
-            // 장르 문자열 생성
+            const trailer = details.videos?.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube') || details.videos?.results?.[0];
             const genres = details.genres?.map(g => g.name).join(', ') || '정보 없음';
-
-            // 런타임 처리
             let runtime = '';
             if (contentType === 'movie' && details.runtime) {
                 runtime = `${details.runtime}분`;
@@ -312,201 +317,53 @@
                 runtime = `에피소드당 약 ${details.episode_run_time[0]}분`;
             }
 
-            // 모달 생성
             const modal = document.createElement('div');
             modal.className = 'modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4';
             modal.innerHTML = `
                 <div class="modal-content bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden opacity-0 -translate-y-8 max-h-[90vh] flex flex-col">
                     <div class="relative h-96 bg-gradient-to-b from-black/50 to-black/70 flex-shrink-0">
-                        ${details.backdrop_path ? `
-                            <img src="${BACKDROP_BASE_URL}${details.backdrop_path}" 
-                                 class="absolute inset-0 w-full h-full object-cover -z-10" 
-                                 alt="${details.title || details.name}">
-                        ` : `
-                            <div class="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 -z-10"></div>
-                        `}
-                        
+                        ${details.backdrop_path ? `<img src="${BACKDROP_BASE_URL}${details.backdrop_path}" class="absolute inset-0 w-full h-full object-cover -z-10" alt="${details.title || details.name}">` : `<div class="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 -z-10"></div>`}
                         <button class="close-detail-modal absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white rounded-full p-3 transition backdrop-blur-sm">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
-
                         <div class="absolute bottom-0 left-0 right-0 p-8 text-white">
                             <div class="flex items-start space-x-6">
-                                ${details.poster_path ? `
-                                    <img src="${IMAGE_BASE_URL}${details.poster_path}" 
-                                         class="w-32 h-48 object-cover rounded-lg shadow-2xl hidden md:block" 
-                                         alt="${details.title || details.name}">
-                                ` : ''}
+                                ${details.poster_path ? `<img src="${IMAGE_BASE_URL}${details.poster_path}" class="w-32 h-48 object-cover rounded-lg shadow-2xl hidden md:block" alt="${details.title || details.name}">` : ''}
                                 <div class="flex-1">
                                     <h2 class="text-4xl font-bold mb-3">${details.title || details.name}</h2>
                                     <div class="flex flex-wrap items-center gap-4 text-sm mb-3">
-                                        <span class="flex items-center bg-yellow-500 text-black px-3 py-1 rounded-full font-bold">
-                                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                                            </svg>
-                                            ${details.vote_average?.toFixed(1) || 'N/A'}
-                                        </span>
-                                        ${details.release_date || details.first_air_date ? `
-                                            <span class="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
-                                                ${(details.release_date || details.first_air_date).split('-')[0]}
-                                            </span>
-                                        ` : ''}
-                                        ${runtime ? `
-                                            <span class="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
-                                                ${runtime}
-                                            </span>
-                                        ` : ''}
-                                        ${contentType === 'tv' && details.number_of_seasons ? `
-                                            <span class="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
-                                                시즌 ${details.number_of_seasons}개
-                                            </span>
-                                        ` : ''}
+                                        <span class="flex items-center bg-yellow-500 text-black px-3 py-1 rounded-full font-bold"><svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>${details.vote_average?.toFixed(1) || 'N/A'}</span>
+                                        ${details.release_date || details.first_air_date ? `<span class="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">${(details.release_date || details.first_air_date).split('-')[0]}</span>` : ''}
+                                        ${runtime ? `<span class="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">${runtime}</span>` : ''}
+                                        ${contentType === 'tv' && details.number_of_seasons ? `<span class="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">시즌 ${details.number_of_seasons}개</span>` : ''}
                                     </div>
                                     <div class="flex flex-wrap gap-2">
-                                        ${details.genres?.map(g => `
-                                            <span class="bg-indigo-500/80 px-3 py-1 rounded-full text-xs backdrop-blur-sm">
-                                                ${g.name}
-                                            </span>
-                                        `).join('') || ''}
+                                        ${details.genres?.map(g => `<span class="bg-indigo-500/80 px-3 py-1 rounded-full text-xs backdrop-blur-sm">${g.name}</span>`).join('') || ''}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
                     <div class="p-8 overflow-y-auto">
-                        <div class="mb-8">
-                            <h3 class="text-2xl font-bold mb-3 text-gray-800">📖 줄거리</h3>
-                            <p class="text-gray-700 leading-relaxed">
-                                ${details.overview || '줄거리 정보가 제공되지 않습니다.'}
-                            </p>
-                        </div>
-
-                        ${trailer ? `
-                            <div class="mb-8">
-                                <h3 class="text-2xl font-bold mb-4 text-gray-800">🎬 예고편</h3>
-                                <div class="relative aspect-video rounded-lg overflow-hidden bg-black">
-                                    <iframe 
-                                        src="https://www.youtube.com/embed/${trailer.key}" 
-                                        class="absolute inset-0 w-full h-full"
-                                        frameborder="0" 
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                        allowfullscreen>
-                                    </iframe>
-                                </div>
-                            </div>
-                        ` : ''}
-
-                        ${details.credits?.cast?.length > 0 ? `
-                            <div class="mb-8">
-                                <h3 class="text-2xl font-bold mb-4 text-gray-800">🎭 출연진</h3>
-                                <div class="scroll-container flex overflow-x-auto space-x-4 pb-4">
-                                    ${details.credits.cast.slice(0, 10).map(actor => `
-                                        <div class="flex-shrink-0 text-center w-32">
-                                            <div class="relative mb-2">
-                                                ${actor.profile_path ? `
-                                                    <img src="${IMAGE_BASE_URL}${actor.profile_path}" 
-                                                         class="w-32 h-40 object-cover rounded-lg shadow-md" 
-                                                         alt="${actor.name}">
-                                                ` : `
-                                                    <div class="w-32 h-40 bg-gray-200 rounded-lg flex items-center justify-center">
-                                                        <svg class="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                                                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
-                                                        </svg>
-                                                    </div>
-                                                `}
-                                            </div>
-                                            <p class="text-sm font-semibold text-gray-800 truncate">${actor.name}</p>
-                                            <p class="text-xs text-gray-500 truncate">${actor.character || ''}</p>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-
-                        ${details.credits?.crew?.length > 0 ? `
-                            <div class="mb-8">
-                                <h3 class="text-2xl font-bold mb-4 text-gray-800">🎥 제작진</h3>
-                                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                    ${details.credits.crew
-                                        .filter(c => ['Director', 'Producer', 'Writer', 'Screenplay'].includes(c.job))
-                                        .slice(0, 6)
-                                        .map(crew => `
-                                            <div class="bg-gray-50 p-3 rounded-lg">
-                                                <p class="font-semibold text-gray-800">${crew.name}</p>
-                                                <p class="text-sm text-gray-500">${crew.job}</p>
-                                            </div>
-                                        `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-
+                        <div class="mb-8"><h3 class="text-2xl font-bold mb-3 text-gray-800">📖 줄거리</h3><p class="text-gray-700 leading-relaxed">${details.overview || '줄거리 정보가 제공되지 않습니다.'}</p></div>
+                        ${trailer ? `<div class="mb-8"><h3 class="text-2xl font-bold mb-4 text-gray-800">🎬 예고편</h3><div class="relative aspect-video rounded-lg overflow-hidden bg-black"><iframe src="https://www.youtube.com/embed/${trailer.key}" class="absolute inset-0 w-full h-full" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div></div>` : ''}
+                        ${details.credits?.cast?.length > 0 ? `<div class="mb-8"><h3 class="text-2xl font-bold mb-4 text-gray-800">🎭 출연진</h3><div class="scroll-container flex overflow-x-auto space-x-4 pb-4">${details.credits.cast.slice(0, 10).map(actor => `<div class="flex-shrink-0 text-center w-32"><div class="relative mb-2">${actor.profile_path ? `<img src="${IMAGE_BASE_URL}${actor.profile_path}" class="w-32 h-40 object-cover rounded-lg shadow-md" alt="${actor.name}">` : `<div class="w-32 h-40 bg-gray-200 rounded-lg flex items-center justify-center"><svg class="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg></div>`}</div><p class="text-sm font-semibold text-gray-800 truncate">${actor.name}</p><p class="text-xs text-gray-500 truncate">${actor.character || ''}</p></div>`).join('')}</div></div>` : ''}
+                        ${details.credits?.crew?.length > 0 ? `<div class="mb-8"><h3 class="text-2xl font-bold mb-4 text-gray-800">🎥 제작진</h3><div class="grid grid-cols-2 md:grid-cols-3 gap-4">${details.credits.crew.filter(c => ['Director', 'Producer', 'Writer', 'Screenplay'].includes(c.job)).slice(0, 6).map(crew => `<div class="bg-gray-50 p-3 rounded-lg"><p class="font-semibold text-gray-800">${crew.name}</p><p class="text-sm text-gray-500">${crew.job}</p></div>`).join('')}</div></div>` : ''}
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            ${details.production_companies?.length > 0 ? `
-                                <div>
-                                    <h4 class="font-bold text-gray-800 mb-2">제작사</h4>
-                                    <p class="text-gray-600">${details.production_companies.map(c => c.name).join(', ')}</p>
-                                </div>
-                            ` : ''}
-                            ${details.production_countries?.length > 0 ? `
-                                <div>
-                                    <h4 class="font-bold text-gray-800 mb-2">제작 국가</h4>
-                                    <p class="text-gray-600">${details.production_countries.map(c => c.name).join(', ')}</p>
-                                </div>
-                            ` : ''}
-                            ${details.spoken_languages?.length > 0 ? `
-                                <div>
-                                    <h4 class="font-bold text-gray-800 mb-2">언어</h4>
-                                    <p class="text-gray-600">${details.spoken_languages.map(l => {
-                                        const name = l.korean_name || l.name || '';
-                                        if (name.includes('한국어') || name.includes('조선말')) {
-                                            return '한국어';
-                                        }
-                                        return name;
-                                    }).join(', ')}</p>
-                                </div>
-                            ` : ''}
-                            ${details.budget ? `
-                                <div>
-                                    <h4 class="font-bold text-gray-800 mb-2">제작비</h4>
-                                    <p class="text-gray-600">$${details.budget.toLocaleString()}</p>
-                                </div>
-                            ` : ''}
+                            ${details.production_companies?.length > 0 ? `<div><h4 class="font-bold text-gray-800 mb-2">제작사</h4><p class="text-gray-600">${details.production_companies.map(c => c.name).join(', ')}</p></div>` : ''}
+                            ${details.production_countries?.length > 0 ? `<div><h4 class="font-bold text-gray-800 mb-2">제작 국가</h4><p class="text-gray-600">${details.production_countries.map(c => c.name).join(', ')}</p></div>` : ''}
+                            ${details.spoken_languages?.length > 0 ? `<div><h4 class="font-bold text-gray-800 mb-2">언어</h4><p class="text-gray-600">${details.spoken_languages.map(l => (l.korean_name || l.name || '').includes('한국어') || (l.korean_name || l.name || '').includes('조선말') ? '한국어' : l.korean_name || l.name).join(', ')}</p></div>` : ''}
+                            ${details.budget ? `<div><h4 class="font-bold text-gray-800 mb-2">제작비</h4><p class="text-gray-600">$${details.budget.toLocaleString()}</p></div>` : ''}
                         </div>
-
-                        <div class="text-center pt-4 border-t flex-shrink-0">
-                            <button class="close-detail-modal bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-lg transition">
-                                닫기
-                            </button>
-                        </div>
+                        <div class="text-center pt-4 border-t flex-shrink-0"><button class="close-detail-modal bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-lg transition">닫기</button></div>
                     </div>
                 </div>
             `;
 
             document.body.appendChild(modal);
-            
-            // 애니메이션
-            setTimeout(() => {
-                modal.querySelector('.modal-content').classList.remove('opacity-0', '-translate-y-8');
-            }, 10);
-
-            // 닫기 이벤트
-            modal.querySelectorAll('.close-detail-modal').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    modal.querySelector('.modal-content').classList.add('opacity-0', '-translate-y-8');
-                    setTimeout(() => modal.remove(), 300);
-                });
-            });
-
-            // 배경 클릭 시 닫기
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.querySelector('.modal-content').classList.add('opacity-0', '-translate-y-8');
-                    setTimeout(() => modal.remove(), 300);
-                }
-            });
+            setTimeout(() => modal.querySelector('.modal-content').classList.remove('opacity-0', '-translate-y-8'), 10);
+            modal.querySelectorAll('.close-detail-modal').forEach(btn => btn.addEventListener('click', () => { modal.querySelector('.modal-content').classList.add('opacity-0', '-translate-y-8'); setTimeout(() => modal.remove(), 300); }));
+            modal.addEventListener('click', e => { if (e.target === modal) { modal.querySelector('.modal-content').classList.add('opacity-0', '-translate-y-8'); setTimeout(() => modal.remove(), 300); } });
         }
 
         // --- Display & UI Functions ---
@@ -516,14 +373,7 @@
                 currentMovieTitles.add(i.title); 
                 const c = document.createElement('div'); 
                 c.className = 'flex-shrink-0 w-48 bg-white rounded-lg shadow-md overflow-hidden transform hover:-translate-y-2 transition-transform cursor-pointer'; 
-                c.innerHTML = `
-                    <img src="${IMAGE_BASE_URL}${i.poster_path}" class="w-full h-64 object-cover">
-                    <div class="p-4">
-                        <h3 class="font-bold text-md truncate text-gray-800">${i.title}</h3>
-                        <p class="text-sm text-gray-600">⭐ ${i.vote_average.toFixed(1)}</p>
-                    </div>
-                `; 
-                // 클릭 이벤트 추가
+                c.innerHTML = `<img src="${IMAGE_BASE_URL}${i.poster_path}" class="w-full h-64 object-cover"><div class="p-4"><h3 class="font-bold text-md truncate text-gray-800">${i.title}</h3><p class="text-sm text-gray-600">⭐ ${i.vote_average.toFixed(1)}</p></div>`; 
                 c.addEventListener('click', () => {
                     const type = i.media_type === 'tv' ? 'tv' : 'movie';
                     showContentDetailModal(i.id, type);
@@ -550,18 +400,8 @@
                 currentMovieTitles.add(m.title); 
                 const c = document.createElement('div'); 
                 c.className = 'bg-white rounded-lg shadow-md overflow-hidden cursor-pointer transform hover:scale-105 transition-transform'; 
-                c.innerHTML = `
-                    <img src="${IMAGE_BASE_URL}${m.poster_path}" class="w-full h-80 object-cover">
-                    <div class="p-4">
-                        <h3 class="font-bold text-lg truncate text-gray-800">${m.title}</h3>
-                        <p class="text-sm text-gray-600">${m.release_date}</p>
-                        <p class="text-sm text-gray-600">⭐ ${m.vote_average.toFixed(1)}</p>
-                    </div>
-                `; 
-                // 클릭 이벤트 추가
-                c.addEventListener('click', () => {
-                    showContentDetailModal(m.id, m.type);
-                });
+                c.innerHTML = `<img src="${IMAGE_BASE_URL}${m.poster_path}" class="w-full h-80 object-cover"><div class="p-4"><h3 class="font-bold text-lg truncate text-gray-800">${m.title}</h3><p class="text-sm text-gray-600">${m.release_date}</p><p class="text-sm text-gray-600">⭐ ${m.vote_average.toFixed(1)}</p></div>`; 
+                c.addEventListener('click', () => showContentDetailModal(m.id, m.type));
                 recommendationSection.appendChild(c); 
             });
         }
@@ -574,13 +414,7 @@
                 itemEl.className = 'p-2 flex items-center hover:bg-gray-100 cursor-pointer'; 
                 const title = i.title || i.name; 
                 const date = i.release_date || i.first_air_date; 
-                itemEl.innerHTML = `
-                    <img src="${IMAGE_BASE_URL}${i.poster_path}" class="w-10 h-14 object-cover mr-4 rounded">
-                    <div>
-                        <div class="font-bold">${title}</div>
-                        <div class="text-sm text-gray-500">${date ? date.split('-')[0] : ''}</div>
-                    </div>
-                `; 
+                itemEl.innerHTML = `<img src="${IMAGE_BASE_URL}${i.poster_path}" class="w-10 h-14 object-cover mr-4 rounded"><div><div class="font-bold">${title}</div><div class="text-sm text-gray-500">${date ? date.split('-')[0] : ''}</div></div>`; 
                 itemEl.addEventListener('click', () => { 
                     document.getElementById('selectedContentTitle').value = title; 
                     document.getElementById('selectedContentDisplay').textContent = `선택됨: ${title}`; 
@@ -652,10 +486,7 @@
             toRender.forEach(p => { 
                 const item = document.createElement('div'); 
                 item.className = 'bg-white p-5 rounded-lg shadow-md cursor-pointer'; 
-                item.innerHTML = `
-                    <p class="text-sm font-semibold text-indigo-500">#${p.contentTitle}</p>
-                    <h3 class="text-xl font-bold text-gray-800">${p.title}</h3>
-                `; 
+                item.innerHTML = `<p class="text-sm font-semibold text-indigo-500">#${p.contentTitle}</p><h3 class="text-xl font-bold text-gray-800">${p.title}</h3>`; 
                 item.addEventListener('click', () => { 
                     document.getElementById('viewPostTitle').textContent = p.title; 
                     document.getElementById('viewPostContentTitle').textContent = `#${p.contentTitle}`; 
@@ -725,27 +556,48 @@
             if(selectedGenres.includes(id)) selectedGenres = selectedGenres.filter(g => g !== id); 
             else selectedGenres.push(id); 
         });
-        getRecommendationBtn.addEventListener('click', () => { 
+
+        // --- 키워드 기능 추가 ---
+        // 버튼 클릭 이벤트 핸들러를 async 함수로 변경
+        getRecommendationBtn.addEventListener('click', async () => { 
             currentSortOrder = 'popularity'; 
             document.querySelector('.sort-btn[data-sort="popularity"]').classList.add('selected'); 
             document.querySelector('.sort-btn[data-sort="latest"]').classList.remove('selected'); 
+            
             const ids = new Set(); 
             if (selectedMood) { 
                 (moodToGenreMap[selectedMood] || []).forEach(id => ids.add(id.toString())); 
             } 
             selectedGenres.forEach(id => ids.add(id)); 
-            const finalIds = Array.from(ids); 
-            if (finalIds.length === 0) { 
-                alert('기분이나 장르를 하나 이상 선택해주세요!'); 
+            const finalGenreIds = Array.from(ids); 
+
+            // --- 키워드 기능 추가 ---
+            // 입력된 텍스트로 키워드 ID 가져오기
+            const userInputText = document.getElementById('userInput').value.trim();
+            let keywordIds = [];
+            if (userInputText) {
+                keywordIds = await fetchKeywordIds(userInputText);
+                if (keywordIds.length === 0) {
+                    console.log(`'${userInputText}'에 대한 키워드를 찾지 못했습니다.`);
+                }
+            }
+            
+            // 장르, 기분, 키워드 중 하나도 선택/입력되지 않았을 경우
+            if (finalGenreIds.length === 0 && keywordIds.length === 0) { 
+                alert('기분, 장르를 선택하거나 키워드를 입력해주세요!'); 
                 return; 
             } 
+            
             let regionQuery = ''; 
             if (selectedRegion === 'KR') { 
                 regionQuery = '&with_origin_country=KR'; 
             } else if (selectedRegion === 'foreign') { 
                 regionQuery = '&with_origin_country=US|GB|JP|FR|DE|IN|CA'; 
             } 
-            fetchRecommendations(finalIds.join(','), regionQuery); 
+            
+            // --- 키워드 기능 추가 ---
+            // 검색된 키워드 ID와 장르 ID를 함께 전달
+            fetchRecommendations(finalGenreIds.join(','), regionQuery, keywordIds.join(',')); 
         });
         sortButtons.addEventListener('click', (e) => { 
             const btn = e.target.closest('.sort-btn'); 
